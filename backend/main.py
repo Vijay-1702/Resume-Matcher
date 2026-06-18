@@ -31,3 +31,22 @@ async def upload_resume(
         "message": "Resume uploaded",
         "filename": file.filename
     }
+
+
+@app.post("/upload/job-description")
+async def upload_jd(
+    file: UploadFile = File(...)
+):
+    file_path = os.path.join(
+        UPLOAD_DIR,
+        file.filename
+    )
+
+    with open(file_path, "wb") as f:
+        content = await file.read()
+        f.write(content)
+
+    return {
+        "message": "JD uploaded",
+        "filename": file.filename
+    }
