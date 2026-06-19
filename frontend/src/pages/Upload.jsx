@@ -1,4 +1,5 @@
 import { useState } from "react";
+import api from "../services/api";
 import "./Upload.css";
 
 function Upload() {
@@ -6,6 +7,67 @@ function Upload() {
   const [jd, setJd] = useState(null);
   const [jdInputMode, setJdInputMode] = useState("text");
   const [jdText, setJdText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const handleUpload = async () => {
+    setError("");
+    setSuccess("");
+
+    // Validate resume
+    if (!resume) {
+      setError("Please select a resume file.");
+      return;
+    }
+
+    // Validate JD
+    if (jdInputMode === "text" && !jdText.trim()) {
+      setError("Please enter a job description.");
+      return;
+    }
+
+    if (jdInputMode === "file" && !jd) {
+      setError("Please select a job description file.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Upload resume
+      const resumeFormData = new FormData();
+      resumeFormData.append("file", resume);
+      await api.post("/upload/resume", resumeFormData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      // Upload JD
+      if (jdInputMode === "text") {
+        await api.post("/upload/job-description/text", {
+          text: jdText,
+        });
+      } else {
+        const jdFormData = new FormData();
+        jdFormData.append("file", jd);
+        await api.post("/upload/job-description", jdFormData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      }
+
+      setSuccess("Files uploaded successfully! Redirecting to results...");
+      setTimeout(() => {
+        window.location.href = "/results";
+      }, 1500);
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Upload failed. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="upload-page">
@@ -19,6 +81,9 @@ function Upload() {
         </div>
 
         <section className="upload-block">
+          {error && <div className="message error-message">{error}</div>}
+          {success && <div className="message success-message">{success}</div>}
+
           <div className="upload-control">
             <h3>Resume Upload</h3>
             <label htmlFor="resume-upload">Select resume</label>
@@ -85,6 +150,14 @@ function Upload() {
             )}
           </div>
         </section>
+
+        <button
+          className="upload-submit-btn"
+          onClick={handleUpload}
+          disabled={loading}
+        >
+          {loading ? "Uploading..." : "Start Matching"}
+        </button>
 
         <p className="upload-footnote">
           After uploading both files, you can proceed to the matcher page to view
