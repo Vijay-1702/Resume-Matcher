@@ -38,21 +38,34 @@ function Upload() {
       // Upload resume
       const resumeFormData = new FormData();
       resumeFormData.append("file", resume);
-      await api.post("/upload/resume", resumeFormData, {
+      const resumeResponse = await api.post("/upload/resume", resumeFormData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
+      if (!resumeResponse.data.success) {
+        setError(resumeResponse.data.message || "Failed to upload resume");
+        setLoading(false);
+        return;
+      }
+
       // Upload JD
+      let jdResponse;
       if (jdInputMode === "text") {
-        await api.post("/upload/job-description/text", {
+        jdResponse = await api.post("/upload/job-description/text", {
           text: jdText,
         });
       } else {
         const jdFormData = new FormData();
         jdFormData.append("file", jd);
-        await api.post("/upload/job-description", jdFormData, {
+        jdResponse = await api.post("/upload/job-description", jdFormData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
+      }
+
+      if (!jdResponse.data.success) {
+        setError(jdResponse.data.message || "Failed to upload job description");
+        setLoading(false);
+        return;
       }
 
       setSuccess("Files uploaded successfully! Redirecting to results...");
@@ -60,10 +73,12 @@ function Upload() {
         window.location.href = "/results";
       }, 1500);
     } catch (err) {
-      setError(
+      const errorMessage = 
         err.response?.data?.message ||
-          "Upload failed. Please try again."
-      );
+        err.message ||
+        "Upload failed. Please try again.";
+      setError(errorMessage);
+      console.error("Upload error:", err);
     } finally {
       setLoading(false);
     }
