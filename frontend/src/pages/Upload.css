@@ -71,6 +71,75 @@
   display: none;
 }
 
+.input-mode-toggle {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.toggle-btn {
+  padding: 0.75rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggle-btn:hover {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.toggle-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.text-input-wrapper {
+  display: grid;
+  gap: 12px;
+}
+
+.jd-textarea {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: transparent;
+  color: var(--text-h);
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  resize: vertical;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.jd-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.jd-textarea::placeholder {
+  color: var(--text);
+}
+
+.text-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--code-bg);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
 .file-meta {
   display: flex;
   align-items: center;

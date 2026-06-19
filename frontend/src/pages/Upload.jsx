@@ -4,6 +4,8 @@ import "./Upload.css";
 function Upload() {
   const [resume, setResume] = useState(null);
   const [jd, setJd] = useState(null);
+  const [jdInputMode, setJdInputMode] = useState("text");
+  const [jdText, setJdText] = useState("");
 
   return (
     <div className="upload-page">
@@ -11,8 +13,8 @@ function Upload() {
         <div>
           <h1>Upload Resume & Job Description</h1>
           <p>
-            Choose your resume and job description files to begin the matching
-            process. Supported formats are PDF, DOC, DOCX
+            Choose your resume and paste or upload your job description to begin 
+            the matching process. Supported file formats are PDF, DOC, DOCX, and TXT.
           </p>
         </div>
 
@@ -35,18 +37,52 @@ function Upload() {
           </div>
 
           <div className="upload-control">
-            <h3>Job Description Upload</h3>
-            <label htmlFor="jd-upload">Select job description</label>
-            <input
-              id="jd-upload"
-              type="file"
-              accept=".pdf,.doc,.docx,.txt"
-              onChange={(e) => setJd(e.target.files[0])}
-            />
-            <div className="file-meta">
-              <span>{jd ? jd.name : "No job description selected yet."}</span>
-              {jd && <span>{(jd.size / 1024).toFixed(1)} KB</span>}
+            <h3>Job Description</h3>
+            
+            <div className="input-mode-toggle">
+              <button
+                className={`toggle-btn ${jdInputMode === "text" ? "active" : ""}`}
+                onClick={() => setJdInputMode("text")}
+              >
+                Text
+              </button>
+              <button
+                className={`toggle-btn ${jdInputMode === "file" ? "active" : ""}`}
+                onClick={() => setJdInputMode("file")}
+              >
+                File
+              </button>
             </div>
+
+            {jdInputMode === "text" ? (
+              <div className="text-input-wrapper">
+                <textarea
+                  id="jd-text-input"
+                  className="jd-textarea"
+                  placeholder="Paste your job description here..."
+                  value={jdText}
+                  onChange={(e) => setJdText(e.target.value)}
+                  rows="8"
+                />
+                <div className="text-meta">
+                  <span>{jdText.length} characters</span>
+                </div>
+              </div>
+            ) : (
+              <>
+                <label htmlFor="jd-upload">Select job description</label>
+                <input
+                  id="jd-upload"
+                  type="file"
+                  accept=".pdf,.doc,.docx,.txt"
+                  onChange={(e) => setJd(e.target.files[0])}
+                />
+                <div className="file-meta">
+                  <span>{jd ? jd.name : "No job description selected yet."}</span>
+                  {jd && <span>{(jd.size / 1024).toFixed(1)} KB</span>}
+                </div>
+              </>
+            )}
           </div>
         </section>
 
