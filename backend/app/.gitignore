@@ -1,0 +1,21 @@
+# Virtual environment
+venv/
+
+# Environment variables (contains your DB password)
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Uploads folder (resume files)
+uploads/
+
+# VS Code settings
+.vscode/
+
+# PyCharm
+.idea/
