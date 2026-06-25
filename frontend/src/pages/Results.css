@@ -71,6 +71,33 @@
   color: var(--text-h);
 }
 
+.score-breakdown {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.score-breakdown > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+}
+
+.score-breakdown span {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.score-breakdown strong {
+  color: var(--text-h);
+  font-size: 1.1rem;
+}
+
 .skills-panel {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -109,6 +136,16 @@
   border: 1px solid var(--accent-border);
 }
 
+.skill-chip.extracted {
+  background: #fff;
+  color: var(--text-h);
+  border: 1px solid var(--border);
+}
+
+.extracted-panel .skills-col {
+  background: #fff;
+}
+
 .missing-list {
   list-style: none;
   margin: 0;
@@ -133,6 +170,7 @@
 
 @media (max-width: 680px) {
   .results-page { padding: 28px 16px 40px; }
+  .score-breakdown { grid-template-columns: 1fr; }
   .skills-panel { grid-template-columns: 1fr; }
   .score-panel { flex-direction: column; align-items: stretch; }
   .score-value { text-align: left; }

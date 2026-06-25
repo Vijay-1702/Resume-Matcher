@@ -7,11 +7,20 @@ from backend.app.skill_extractor import analyze_skills
 from backend.app.matcher import calculate_match_score
 import os
 import shutil
+from pydantic import BaseModel
+import uuid
+from datetime import datetime
 
 router = APIRouter()
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+workflow_sessions = {}
+
+
+class JDTextInput(BaseModel):
+    text: str
 
 
 @router.post("/upload/resume")
@@ -201,4 +210,143 @@ def get_match_results(resume_version_id: int, db: Session = Depends(get_db)):
         "missing_skills": result.missing_skills,
         "ai_suggestions": result.ai_suggestions,
         "created_at": result.created_at
+    }
+
+
+@router.post("/workflow/upload/resume")
+async def workflow_upload_resume(file: UploadFile = File(...)):
+    filename = file.filename
+    if not filename.endswith((".pdf", ".docx")):
+        raise HTTPException(
+            status_code=400,
+            detail="Only PDF and DOCX files are allowed"
+        )
+
+    session_id = str(uuid.uuid4())
+    session_folder = os.path.join(UPLOAD_DIR, f"session_{session_id}")
+    os.makedirs(session_folder, exist_ok=True)
+
+    file_path = os.path.join(session_folder, filename)
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    try:
+        resume_text = extract_text(file_path)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    workflow_sessions[session_id] = {
+        "resume_text": resume_text,
+        "resume_file": filename,
+        "created_at": datetime.now()
+    }
+
+    return {
+        "success": True,
+        "message": "Resume uploaded successfully",
+        "session_id": session_id,
+        "resume_preview": resume_text[:200] + "..."
+    }
+
+
+@router.post("/workflow/upload/job-description/text")
+async def workflow_upload_jd_text(session_id: str, jd_input: JDTextInput):
+    if session_id not in workflow_sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if not jd_input.text or not jd_input.text.strip():
+        raise HTTPException(status_code=400, detail="Job description text cannot be empty")
+
+    session = workflow_sessions[session_id]
+    resume_text = session.get("resume_text")
+
+    if not resume_text:
+        raise HTTPException(status_code=400, detail="Resume not found in session")
+
+    jd_text = jd_input.text
+    skill_result = analyze_skills(resume_text, jd_text)
+    match_result = calculate_match_score(resume_text, jd_text)
+
+    session.update({
+        "jd_text": jd_text,
+        "skill_result": skill_result,
+        "match_result": match_result
+    })
+
+    return {
+        "success": True,
+        "message": "Job description processed",
+        "session_id": session_id
+    }
+
+
+@router.post("/workflow/upload/job-description")
+async def workflow_upload_jd_file(session_id: str, file: UploadFile = File(...)):
+    if session_id not in workflow_sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    filename = file.filename
+    if not filename.endswith((".pdf", ".docx", ".txt")):
+        raise HTTPException(
+            status_code=400,
+            detail="Only PDF, DOCX, and TXT files are allowed"
+        )
+
+    session = workflow_sessions[session_id]
+    session_folder = os.path.join(UPLOAD_DIR, f"session_{session_id}")
+    os.makedirs(session_folder, exist_ok=True)
+
+    file_path = os.path.join(session_folder, filename)
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    try:
+        jd_text = extract_text(file_path)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    resume_text = session.get("resume_text")
+
+    if not resume_text:
+        raise HTTPException(status_code=400, detail="Resume not found in session")
+
+    skill_result = analyze_skills(resume_text, jd_text)
+    match_result = calculate_match_score(resume_text, jd_text)
+
+    session.update({
+        "jd_text": jd_text,
+        "jd_file": filename,
+        "skill_result": skill_result,
+        "match_result": match_result
+    })
+
+    return {
+        "success": True,
+        "message": "Job description processed",
+        "session_id": session_id
+    }
+
+
+@router.get("/workflow/results")
+async def workflow_get_results(session_id: str):
+    if session_id not in workflow_sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session = workflow_sessions[session_id]
+    match_result = session.get("match_result")
+    skill_result = session.get("skill_result")
+
+    if not match_result or not skill_result:
+        raise HTTPException(status_code=400, detail="Results not ready. Please upload job description first.")
+
+    return {
+        "success": True,
+        "session_id": session_id,
+        "score": round(match_result.get("final_score", 0), 2),
+        "matchedSkills": match_result.get("matched_skills", []),
+        "missingSkills": match_result.get("missing_skills", []),
+        "semanticScore": round(match_result.get("semantic_score", 0), 2),
+        "skillScore": round(match_result.get("skill_score", 0), 2),
+        "resumeSkills": skill_result.get("resume_skills", []),
+        "jdSkills": skill_result.get("jd_skills", [])
     }

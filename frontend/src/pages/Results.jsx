@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 import api from "../services/api";
 import "./Results.css";
 
+const getErrorMessage = (err, fallback) =>
+  err.response?.data?.message ||
+  err.response?.data?.detail ||
+  err.message ||
+  fallback;
+
 function Results() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -44,11 +50,7 @@ function Results() {
         }
       } catch (err) {
         console.error("Error fetching results:", err);
-        setError(
-          err.response?.data?.message ||
-          err.message ||
-          "Failed to load results. Please try again."
-        );
+        setError(getErrorMessage(err, "Failed to load results. Please try again."));
       } finally {
         if (mounted) setLoading(false);
       }
@@ -79,6 +81,17 @@ function Results() {
             <div className="score-value">{loading ? "Loading..." : `${score}%`}</div>
           </div>
 
+          <div className="score-breakdown">
+            <div>
+              <span>Semantic Match</span>
+              <strong>{loading ? "--" : `${data.semanticScore ?? 0}%`}</strong>
+            </div>
+            <div>
+              <span>Skill Match</span>
+              <strong>{loading ? "--" : `${data.skillScore ?? 0}%`}</strong>
+            </div>
+          </div>
+
           <div className="skills-panel">
             <div className="skills-col">
               <h3>Matched Skills</h3>
@@ -100,6 +113,30 @@ function Results() {
                   </li>
                 ))}
               </ul>
+            </div>
+          </div>
+
+          <div className="skills-panel extracted-panel">
+            <div className="skills-col">
+              <h3>Resume Skills Extracted</h3>
+              <div className="skills-list">
+                {(data?.resumeSkills || []).map((s, i) => (
+                  <span key={i} className="skill-chip extracted">
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="skills-col">
+              <h3>JD Skills Extracted</h3>
+              <div className="skills-list">
+                {(data?.jdSkills || []).map((s, i) => (
+                  <span key={i} className="skill-chip extracted">
+                    {s}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         </section>
