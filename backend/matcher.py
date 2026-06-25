@@ -1,5 +1,5 @@
 from sentence_transformers import SentenceTransformer, util
-from backend.skill_extractor import analyze_skills
+from skill_extractor import analyze_skills
 
 # Load SBERT model once when app starts
 model = SentenceTransformer("all-MiniLM-L6-v2")

@@ -35,10 +35,10 @@ function Upload() {
     setLoading(true);
 
     try {
-      // Upload resume
+      // Step 1: Upload resume
       const resumeFormData = new FormData();
       resumeFormData.append("file", resume);
-      const resumeResponse = await api.post("/upload/resume", resumeFormData, {
+      const resumeResponse = await api.post("/workflow/upload/resume", resumeFormData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
@@ -48,27 +48,36 @@ function Upload() {
         return;
       }
 
-      // Upload JD
+      const sessionId = resumeResponse.data.session_id;
+      setSuccess("Resume uploaded! Processing job description...");
+
+      // Step 2: Upload JD and get results
       let jdResponse;
       if (jdInputMode === "text") {
-        jdResponse = await api.post("/upload/job-description/text", {
-          text: jdText,
-        });
+        jdResponse = await api.post(
+          `/workflow/upload/job-description/text?session_id=${sessionId}`,
+          { text: jdText }
+        );
       } else {
         const jdFormData = new FormData();
         jdFormData.append("file", jd);
-        jdResponse = await api.post("/upload/job-description", jdFormData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        jdResponse = await api.post(
+          `/workflow/upload/job-description?session_id=${sessionId}`,
+          jdFormData,
+          { headers: { "Content-Type": "multipart/form-data" } }
+        );
       }
 
       if (!jdResponse.data.success) {
-        setError(jdResponse.data.message || "Failed to upload job description");
+        setError(jdResponse.data.message || "Failed to process job description");
         setLoading(false);
         return;
       }
 
-      setSuccess("Files uploaded successfully! Redirecting to results...");
+      // Store session_id in localStorage for Results page
+      localStorage.setItem("sessionId", sessionId);
+
+      setSuccess("Match complete! Redirecting to results...");
       setTimeout(() => {
         window.location.href = "/results";
       }, 1500);

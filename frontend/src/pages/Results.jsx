@@ -2,28 +2,53 @@ import { useEffect, useState } from "react";
 import api from "../services/api";
 import "./Results.css";
 
-const sample = {
-  score: 78,
-  matchedSkills: ["React", "JavaScript", "Node.js", "REST APIs"],
-  missingSkills: ["Docker", "Kubernetes", "GraphQL"],
-};
-
 function Results() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [data, setData] = useState(sample);
+  const [data, setData] = useState({
+    score: 0,
+    matchedSkills: [],
+    missingSkills: [],
+  });
 
   useEffect(() => {
     let mounted = true;
     const fetchResults = async () => {
       try {
-        const res = await api.get("/results");
+        // Get session_id from localStorage
+        const sessionId = localStorage.getItem("sessionId");
+        
+        if (!sessionId) {
+          setError("No active session. Please upload files first.");
+          setLoading(false);
+          return;
+        }
+
+        // Fetch results from workflow endpoint
+        const res = await api.get(`/workflow/results?session_id=${sessionId}`);
+        
         if (!mounted) return;
-        // Expecting shape: { score, matchedSkills, missingSkills }
-        if (res?.data) setData(res.data);
+        
+        if (res?.data?.success) {
+          setData({
+            score: res.data.score || 0,
+            matchedSkills: res.data.matchedSkills || [],
+            missingSkills: res.data.missingSkills || [],
+            semanticScore: res.data.semanticScore,
+            skillScore: res.data.skillScore,
+            resumeSkills: res.data.resumeSkills,
+            jdSkills: res.data.jdSkills,
+          });
+        } else {
+          setError(res?.data?.message || "Failed to fetch results");
+        }
       } catch (err) {
-        console.warn("Could not fetch results, using sample data.", err);
-        setError("");
+        console.error("Error fetching results:", err);
+        setError(
+          err.response?.data?.message ||
+          err.message ||
+          "Failed to load results. Please try again."
+        );
       } finally {
         if (mounted) setLoading(false);
       }
@@ -82,7 +107,10 @@ function Results() {
         <div className="results-actions">
           <button
             className="upload-submit-btn"
-            onClick={() => (window.location.href = "/upload")}
+            onClick={() => {
+              localStorage.removeItem("sessionId");
+              window.location.href = "/upload";
+            }}
           >
             Upload New
           </button>
