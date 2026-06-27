@@ -79,6 +79,7 @@ const buildRecommendations = (data, score) => {
 function Results() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [resumeSaved, setResumeSaved] = useState(false);
   const [data, setData] = useState({
     score: 0,
     matchedSkills: [],
@@ -245,6 +246,23 @@ function Results() {
         <div className="results-actions">
           <button
             className="upload-submit-btn"
+            type="button"
+            onClick={() => setResumeSaved(true)}
+          >
+            {resumeSaved ? "Resume Saved" : "Save Resume"}
+          </button>
+          <button
+            className="results-secondary-btn"
+            type="button"
+            onClick={() => {
+              window.location.href = "/history";
+            }}
+          >
+            Resume History
+          </button>
+          <button
+            className="upload-submit-btn"
+            type="button"
             onClick={() => {
               localStorage.removeItem("sessionId");
               window.location.href = "/upload";
