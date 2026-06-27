@@ -26,6 +26,17 @@ def extract_text_from_docx(file_path: str) -> str:
     return text.strip()
 
 
+def extract_text_from_txt(file_path: str) -> str:
+    try:
+        with open(file_path, "r", encoding="utf-8") as file:
+            return file.read().strip()
+    except UnicodeDecodeError:
+        with open(file_path, "r", encoding="cp1252") as file:
+            return file.read().strip()
+    except Exception as e:
+        raise ValueError(f"Failed to extract text from TXT: {str(e)}")
+
+
 def extract_text(file_path: str) -> str:
     _, extension = os.path.splitext(file_path)
     extension = extension.lower()
@@ -34,5 +45,7 @@ def extract_text(file_path: str) -> str:
         return extract_text_from_pdf(file_path)
     elif extension == ".docx":
         return extract_text_from_docx(file_path)
+    elif extension == ".txt":
+        return extract_text_from_txt(file_path)
     else:
-        raise ValueError(f"Unsupported file type: {extension}. Only PDF and DOCX allowed.")
+        raise ValueError(f"Unsupported file type: {extension}. Only PDF, DOCX, and TXT allowed.")

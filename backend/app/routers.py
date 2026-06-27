@@ -1,10 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
-from sqlalchemy.orm import Session
-from app.database import get_db
-from app import models
-from app.parser import extract_text
-from app.skill_extractor import analyze_skills
-from app.matcher import calculate_match_score
+from datetime import datetime
 import os
 import shutil
 from app.ai_suggestions import generate_suggestions
@@ -13,6 +7,12 @@ router = APIRouter()
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+workflow_sessions = {}
+
+
+class JDTextInput(BaseModel):
+    text: str
 
 
 @router.post("/upload/resume")
