@@ -31,7 +31,7 @@ def extract_text_from_txt(file_path: str) -> str:
         with open(file_path, "r", encoding="utf-8") as file:
             return file.read().strip()
     except UnicodeDecodeError:
-        with open(file_path, "r", encoding="cp1252") as file:
+        with open(file_path, "r", encoding="latin-1") as file:
             return file.read().strip()
     except Exception as e:
         raise ValueError(f"Failed to extract text from TXT: {str(e)}")

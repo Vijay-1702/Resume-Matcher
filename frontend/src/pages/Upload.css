@@ -35,6 +35,61 @@
   gap: 18px;
 }
 
+.workflow-steps {
+  list-style: none;
+  margin: 0;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--code-bg);
+}
+
+.workflow-step {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.workflow-index {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.78rem;
+  flex: 0 0 auto;
+}
+
+.workflow-step.active,
+.workflow-step.complete {
+  color: var(--text-h);
+}
+
+.workflow-step.active .workflow-index {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.workflow-step.complete .workflow-index {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+}
+
 .upload-block h3 {
   margin: 0;
   font-size: 1.1rem;
@@ -219,6 +274,10 @@
 
   .upload-main {
     padding: 28px 22px;
+  }
+
+  .workflow-steps {
+    grid-template-columns: 1fr 1fr;
   }
 
   .file-meta {
