@@ -2,28 +2,55 @@ import { useEffect, useState } from "react";
 import api from "../services/api";
 import "./Results.css";
 
-const sample = {
-  score: 78,
-  matchedSkills: ["React", "JavaScript", "Node.js", "REST APIs"],
-  missingSkills: ["Docker", "Kubernetes", "GraphQL"],
-};
+const getErrorMessage = (err, fallback) =>
+  err.response?.data?.message ||
+  err.response?.data?.detail ||
+  err.message ||
+  fallback;
 
 function Results() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [data, setData] = useState(sample);
+  const [data, setData] = useState({
+    score: 0,
+    matchedSkills: [],
+    missingSkills: [],
+  });
 
   useEffect(() => {
     let mounted = true;
     const fetchResults = async () => {
       try {
-        const res = await api.get("/results");
+        // Get session_id from localStorage
+        const sessionId = localStorage.getItem("sessionId");
+        
+        if (!sessionId) {
+          setError("No active session. Please upload files first.");
+          setLoading(false);
+          return;
+        }
+
+        // Fetch results from workflow endpoint
+        const res = await api.get(`/workflow/results?session_id=${sessionId}`);
+        
         if (!mounted) return;
-        // Expecting shape: { score, matchedSkills, missingSkills }
-        if (res?.data) setData(res.data);
+        
+        if (res?.data?.success) {
+          setData({
+            score: res.data.score || 0,
+            matchedSkills: res.data.matchedSkills || [],
+            missingSkills: res.data.missingSkills || [],
+            semanticScore: res.data.semanticScore,
+            skillScore: res.data.skillScore,
+            resumeSkills: res.data.resumeSkills,
+            jdSkills: res.data.jdSkills,
+          });
+        } else {
+          setError(res?.data?.message || "Failed to fetch results");
+        }
       } catch (err) {
-        console.warn("Could not fetch results, using sample data.", err);
-        setError("");
+        console.error("Error fetching results:", err);
+        setError(getErrorMessage(err, "Failed to load results. Please try again."));
       } finally {
         if (mounted) setLoading(false);
       }
@@ -54,6 +81,17 @@ function Results() {
             <div className="score-value">{loading ? "Loading..." : `${score}%`}</div>
           </div>
 
+          <div className="score-breakdown">
+            <div>
+              <span>Semantic Match</span>
+              <strong>{loading ? "--" : `${data.semanticScore ?? 0}%`}</strong>
+            </div>
+            <div>
+              <span>Skill Match</span>
+              <strong>{loading ? "--" : `${data.skillScore ?? 0}%`}</strong>
+            </div>
+          </div>
+
           <div className="skills-panel">
             <div className="skills-col">
               <h3>Matched Skills</h3>
@@ -77,12 +115,39 @@ function Results() {
               </ul>
             </div>
           </div>
+
+          <div className="skills-panel extracted-panel">
+            <div className="skills-col">
+              <h3>Resume Skills Extracted</h3>
+              <div className="skills-list">
+                {(data?.resumeSkills || []).map((s, i) => (
+                  <span key={i} className="skill-chip extracted">
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="skills-col">
+              <h3>JD Skills Extracted</h3>
+              <div className="skills-list">
+                {(data?.jdSkills || []).map((s, i) => (
+                  <span key={i} className="skill-chip extracted">
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
         </section>
 
         <div className="results-actions">
           <button
             className="upload-submit-btn"
-            onClick={() => (window.location.href = "/upload")}
+            onClick={() => {
+              localStorage.removeItem("sessionId");
+              window.location.href = "/upload";
+            }}
           >
             Upload New
           </button>
