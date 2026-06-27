@@ -13,8 +13,6 @@ const formatSkillList = (skills) => {
   if (!skills?.length) return "";
   const visibleSkills = skills.slice(0, 4).join(", ");
   return skills.length > 4 ? `${visibleSkills}, and ${skills.length - 4} more` : visibleSkills;
-<<<<<<< HEAD
-=======
 };
 
 const normalizeRecommendations = (source) => {
@@ -77,7 +75,6 @@ const buildRecommendations = (data, score) => {
           detail: "Review formatting, dates, and role-specific examples before submitting.",
         },
       ];
->>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
 };
 
 const normalizeRecommendations = (source) => {
@@ -168,16 +165,6 @@ function Results() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [resumeSaved, setResumeSaved] = useState(false);
-<<<<<<< HEAD
-  const [saveTarget, setSaveTarget] = useState("current");
-  const [saveMessage, setSaveMessage] = useState("");
-  const [jobDescriptions, setJobDescriptions] = useState([]);
-  const [showSavePanel, setShowSavePanel] = useState(false);
-  const [saveMode, setSaveMode] = useState("existing");
-  const [selectedJd, setSelectedJd] = useState(null);
-  const [newJdTitle, setNewJdTitle] = useState("");
-=======
->>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
   const [data, setData] = useState({
     score: 0,
     matchedSkills: [],
@@ -198,11 +185,7 @@ function Results() {
         }
 
         // Fetch results from workflow endpoint
-<<<<<<< HEAD
-        const res = await api.get(`workflow/results?session_id=${sessionId}`);
-=======
         const res = await api.get(`/workflow/results?session_id=${sessionId}`);
->>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
         
         if (!mounted) return;
         
@@ -248,65 +231,6 @@ function Results() {
 
   const score = Math.min(100, Math.max(0, data?.score ?? 0));
   const recommendations = buildRecommendations(data, score);
-<<<<<<< HEAD
-
-  const openSaveDialog = () => {
-    setError("");
-    setSaveMessage("");
-    if (!selectedJd && jobDescriptions.length) {
-      setSelectedJd(jobDescriptions[0].id);
-    }
-    setSaveMode("existing");
-    setShowSavePanel(true);
-  };
-
-  const closeSaveDialog = () => {
-    setShowSavePanel(false);
-  };
-
-  const handleSaveResume = async () => {
-    setError("");
-    setSaveMessage("");
-
-    const sessionId = localStorage.getItem("sessionId");
-    if (!sessionId) {
-      setError("No active session. Please upload files first.");
-      return;
-    }
-    try {
-      const rawUser = localStorage.getItem("authUser");
-      if (!rawUser) {
-        setError("Not signed in.");
-        return;
-      }
-      const user = JSON.parse(rawUser);
-
-      const payload = { session_id: sessionId, user_id: user.id };
-      if (saveMode === "existing") {
-        if (!selectedJd) { setError("Select a job description"); return; }
-        payload.target_type = "existing";
-        payload.jd_id = selectedJd;
-      } else {
-        if (!newJdTitle) { setError("Enter a title for the new JD"); return; }
-        payload.target_type = "new";
-        payload.new_jd_title = newJdTitle;
-      }
-
-      const res = await api.post("workflow/save-resume", payload);
-      if (res?.data?.success) {
-        setResumeSaved(true);
-        setSaveMessage(`Resume saved (v${res.data.version_no}) under JD ${res.data.jd_id}`);
-        setShowSavePanel(false);
-      } else {
-        setError(res?.data?.message || "Unable to save resume right now.");
-      }
-    } catch (err) {
-      console.error(err);
-      setError(getErrorMessage(err, "Unable to save resume right now."));
-    }
-  };
-=======
->>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
 
   return (
     <div className="results-page">
@@ -331,8 +255,6 @@ function Results() {
             <div>
               <span>Semantic Match</span>
               <strong>{loading ? "--" : `${data.semanticScore ?? 0}%`}</strong>
-<<<<<<< HEAD
-=======
             </div>
             <div>
               <span>Skill Match</span>
@@ -350,7 +272,6 @@ function Results() {
                   </span>
                 ))}
               </div>
->>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
             </div>
             <div>
               <span>Skill Match</span>
@@ -358,16 +279,6 @@ function Results() {
             </div>
           </div>
 
-<<<<<<< HEAD
-          <div className="skills-panel">
-            <SkillGroup title="Matched Skills" skills={data?.matchedSkills} tone="matched" />
-            <SkillGroup title="Missing Skills" skills={data?.missingSkills} tone="missing" />
-          </div>
-
-          <div className="skills-panel extracted-panel">
-            <SkillGroup title="Resume Skills Extracted" skills={data?.resumeSkills} tone="extracted" />
-            <SkillGroup title="JD Skills Extracted" skills={data?.jdSkills} tone="extracted" />
-=======
           <div className="skills-panel extracted-panel">
             <div className="skills-col">
               <h3>Resume Skills Extracted</h3>
@@ -390,7 +301,6 @@ function Results() {
                 ))}
               </div>
             </div>
->>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
           </div>
 
           <section className="suggestions-card" aria-labelledby="suggestions-title">
@@ -512,8 +422,6 @@ function Results() {
           <button
             className="upload-submit-btn"
             type="button"
-<<<<<<< HEAD
-=======
             onClick={() => setResumeSaved(true)}
           >
             {resumeSaved ? "Resume Saved" : "Save Resume"}
@@ -530,7 +438,6 @@ function Results() {
           <button
             className="upload-submit-btn"
             type="button"
->>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
             onClick={() => {
               localStorage.removeItem("sessionId");
               window.location.href = "/upload";

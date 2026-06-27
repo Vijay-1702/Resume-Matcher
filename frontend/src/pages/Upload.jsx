@@ -1,15 +1,8 @@
-<<<<<<< HEAD
-import { useState, useEffect } from "react";
-=======
 import { useState } from "react";
->>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import "./Upload.css";
 
-<<<<<<< HEAD
-
-=======
 const workflowSteps = [
   "Resume Upload",
   "JD Upload",
@@ -18,7 +11,6 @@ const workflowSteps = [
   "Matching",
   "Results Screen",
 ];
->>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
 
 const getErrorMessage = (err, fallback) =>
   err.response?.data?.message ||
@@ -28,13 +20,6 @@ const getErrorMessage = (err, fallback) =>
 
 function Upload() {
   const navigate = useNavigate();
-<<<<<<< HEAD
-  useEffect(() => {
-    const authUser = localStorage.getItem("authUser");
-    if (!authUser) navigate("/");
-  }, [navigate]);
-=======
->>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
   const [resume, setResume] = useState(null);
   const [jd, setJd] = useState(null);
   const [jdInputMode, setJdInputMode] = useState("text");
@@ -73,11 +58,7 @@ function Upload() {
       setCurrentStep(1);
       const resumeFormData = new FormData();
       resumeFormData.append("file", resume);
-<<<<<<< HEAD
-      const resumeResponse = await api.post("workflow/upload/resume", resumeFormData, {
-=======
       const resumeResponse = await api.post("/workflow/upload/resume", resumeFormData, {
->>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
         headers: { "Content-Type": "multipart/form-data" },
       });
 
@@ -95,22 +76,14 @@ function Upload() {
       let jdResponse;
       if (jdInputMode === "text") {
         jdResponse = await api.post(
-<<<<<<< HEAD
-          `workflow/upload/job-description/text?session_id=${sessionId}`,
-=======
           `/workflow/upload/job-description/text?session_id=${sessionId}`,
->>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
           { text: jdText }
         );
       } else {
         const jdFormData = new FormData();
         jdFormData.append("file", jd);
         jdResponse = await api.post(
-<<<<<<< HEAD
-          `workflow/upload/job-description?session_id=${sessionId}`,
-=======
           `/workflow/upload/job-description?session_id=${sessionId}`,
->>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
           jdFormData,
           { headers: { "Content-Type": "multipart/form-data" } }
         );
