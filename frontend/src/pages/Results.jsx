@@ -177,6 +177,20 @@ function Results() {
   const score = Math.min(100, Math.max(0, data?.score ?? 0));
   const recommendations = buildRecommendations(data, score);
 
+  const openSaveDialog = () => {
+    setError("");
+    setSaveMessage("");
+    if (!selectedJd && jobDescriptions.length) {
+      setSelectedJd(jobDescriptions[0].id);
+    }
+    setSaveMode("existing");
+    setShowSavePanel(true);
+  };
+
+  const closeSaveDialog = () => {
+    setShowSavePanel(false);
+  };
+
   const handleSaveResume = async () => {
     setError("");
     setSaveMessage("");
@@ -291,7 +305,7 @@ function Results() {
 
         <div className="results-actions">
           <div style={{display:'flex', alignItems:'center', gap:12}}>
-            <button className="upload-submit-btn" type="button" onClick={() => setShowSavePanel((s) => !s)}>
+            <button className="upload-submit-btn" type="button" onClick={openSaveDialog}>
               {resumeSaved ? "Resume Saved" : "Save Resume"}
             </button>
             <button className="results-secondary-btn" type="button" onClick={() => { window.location.href = "/history"; }}>
@@ -300,34 +314,78 @@ function Results() {
           </div>
 
           {showSavePanel && (
-            <div className="save-panel">
-              <div style={{marginBottom:8}}>
-                <label>
-                  <input type="radio" checked={saveMode === 'existing'} onChange={() => setSaveMode('existing')} /> Save to existing JD
-                </label>
-                <label style={{marginLeft:12}}>
-                  <input type="radio" checked={saveMode === 'new'} onChange={() => setSaveMode('new')} /> Create new JD
-                </label>
-              </div>
-
-              {saveMode === 'existing' ? (
-                <div>
-                  <select value={selectedJd || ''} onChange={(e) => setSelectedJd(Number(e.target.value))}>
-                    <option value="">Select a job description...</option>
-                    {jobDescriptions.map((jd) => (
-                      <option key={jd.id} value={jd.id}>{jd.title || `(JD ${jd.id})`}</option>
-                    ))}
-                  </select>
+            <div className="save-modal-backdrop" role="presentation" onClick={closeSaveDialog}>
+              <div
+                className="save-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="save-modal-title"
+                aria-describedby="save-modal-description"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="save-modal-header">
+                  <div>
+                    <p className="save-modal-kicker">Save resume</p>
+                    <h3 id="save-modal-title">Choose where to save this version</h3>
+                  </div>
+                  <button className="save-modal-close" type="button" onClick={closeSaveDialog} aria-label="Close save dialog">
+                    ×
+                  </button>
                 </div>
-              ) : (
-                <div>
-                  <input placeholder="New JD title" value={newJdTitle} onChange={(e) => setNewJdTitle(e.target.value)} />
-                </div>
-              )}
 
-              <div style={{marginTop:8}}>
-                <button className="upload-submit-btn" onClick={handleSaveResume}>Confirm Save</button>
-                <button className="results-secondary-btn" style={{marginLeft:8}} onClick={() => setShowSavePanel(false)}>Cancel</button>
+                <p id="save-modal-description" className="save-modal-description">
+                  Save to an existing job description or create a new one before storing this resume version.
+                </p>
+
+                <div className="save-mode-switch">
+                  <label className={saveMode === 'existing' ? 'active' : ''}>
+                    <input type="radio" name="save-mode" checked={saveMode === 'existing'} onChange={() => setSaveMode('existing')} />
+                    Existing JD
+                  </label>
+                  <label className={saveMode === 'new' ? 'active' : ''}>
+                    <input type="radio" name="save-mode" checked={saveMode === 'new'} onChange={() => setSaveMode('new')} />
+                    Create new JD
+                  </label>
+                </div>
+
+                {saveMode === 'existing' ? (
+                  <div className="save-modal-field">
+                    <label htmlFor="save-existing-jd">Select a job description</label>
+                    <select
+                      id="save-existing-jd"
+                      value={selectedJd || ''}
+                      onChange={(e) => setSelectedJd(Number(e.target.value))}
+                    >
+                      <option value="">Select a job description...</option>
+                      {jobDescriptions.map((jd) => (
+                        <option key={jd.id} value={jd.id}>
+                          {jd.title || `(JD ${jd.id})`}
+                        </option>
+                      ))}
+                    </select>
+                    {!jobDescriptions.length && <p className="save-modal-help">No saved JDs found. Switch to create a new one.</p>}
+                  </div>
+                ) : (
+                  <div className="save-modal-field">
+                    <label htmlFor="save-new-jd">New JD title</label>
+                    <input
+                      id="save-new-jd"
+                      placeholder="e.g. Frontend Engineer"
+                      value={newJdTitle}
+                      onChange={(e) => setNewJdTitle(e.target.value)}
+                    />
+                    <p className="save-modal-help">The resume will be saved under a new job description with the current JD text.</p>
+                  </div>
+                )}
+
+                <div className="save-modal-actions">
+                  <button className="upload-submit-btn" type="button" onClick={handleSaveResume}>
+                    Confirm Save
+                  </button>
+                  <button className="results-secondary-btn" type="button" onClick={closeSaveDialog}>
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
           )}
