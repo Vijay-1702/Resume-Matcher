@@ -264,8 +264,6 @@ async def analyze_resume(
         "resume_skills": result["resume_skills"],
         "jd_skills": result["jd_skills"],
         "extracted_text_preview": extracted_text[:300] + "..."
-<<<<<<<< HEAD:backend/routers.py
-========
     }
 
 
@@ -358,5 +356,4 @@ def compare_versions(
         "newly_added_skills": new_skills,
         "still_missing_skills": still_missing,
         "all_versions": scores
->>>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14)):app/routers.py
     }
