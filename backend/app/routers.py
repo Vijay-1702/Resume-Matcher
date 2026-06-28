@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Body
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models
@@ -8,11 +8,324 @@ from app.matcher import calculate_match_score
 from app.ai_suggestions import generate_suggestions
 import os
 import shutil
+from uuid import uuid4
 
 router = APIRouter()
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+workflow_sessions = {}
+
+
+def _ensure_session(session_id: str | None = None) -> str:
+    if session_id and session_id in workflow_sessions:
+        return session_id
+
+    new_session_id = session_id or str(uuid4())
+    workflow_sessions[new_session_id] = {
+        "user_id": 1,
+        "jd_id": 1,
+        "resume_version_id": None,
+        "resume_text": None,
+        "resume_file_path": None,
+        "resume_file_name": None,
+        "jd_text": None,
+        "results": None,
+    }
+    return new_session_id
+
+
+def _get_previous_jd_id(db: Session, user_id: int, current_jd_id: int) -> int:
+    previous_version = (
+        db.query(models.ResumeVersion)
+        .filter(
+            models.ResumeVersion.user_id == user_id,
+            models.ResumeVersion.jd_id != current_jd_id,
+        )
+        .order_by(models.ResumeVersion.id.desc())
+        .first()
+    )
+    return previous_version.jd_id if previous_version else current_jd_id
+
+
+def _ensure_user_and_job_description(db: Session, user_id: int, jd_id: int):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        user = models.User(
+            id=user_id,
+            name="Default User",
+            email=f"user{user_id}@example.com",
+            password="password",
+        )
+        db.add(user)
+
+    jd = db.query(models.JobDescription).filter(models.JobDescription.id == jd_id).first()
+    if not jd:
+        jd = models.JobDescription(
+            id=jd_id,
+            user_id=user.id,
+            title="Default Job Description",
+            description="Software engineering role",
+        )
+        db.add(jd)
+
+    db.commit()
+    return user, jd
+
+
+def _extract_text_from_upload(file_path: str, filename: str) -> str:
+    ext = os.path.splitext(filename)[1].lower()
+    if ext == ".txt":
+        with open(file_path, "r", encoding="utf-8") as handle:
+            return handle.read().strip()
+    return extract_text(file_path)
+
+
+def _build_results_payload(resume_text: str, jd_text: str) -> dict:
+    result = calculate_match_score(resume_text, jd_text)
+    return {
+        "score": result["final_score"],
+        "matchedSkills": result["matched_skills"],
+        "missingSkills": result["missing_skills"],
+        "semanticScore": result["semantic_score"],
+        "skillScore": result["skill_score"],
+        "resumeSkills": result["resume_skills"],
+        "jdSkills": result["jd_skills"],
+        "recommendations": [],
+        "ai_suggestions": [],
+        "aiSuggestions": [],
+    }
+
+
+@router.post("/workflow/upload/resume")
+async def workflow_upload_resume(
+    file: UploadFile = File(...),
+    session_id: str | None = None,
+    db: Session = Depends(get_db),
+):
+    filename = file.filename or "resume.pdf"
+    if not filename.lower().endswith((".pdf", ".docx")):
+        raise HTTPException(400, "Only PDF and DOCX files are allowed")
+
+    session_key = _ensure_session(session_id)
+    session_data = workflow_sessions[session_key]
+    user_id = session_data["user_id"]
+    jd_id = session_data["jd_id"]
+    _ensure_user_and_job_description(db, user_id, jd_id)
+
+    version_no = db.query(models.ResumeVersion).filter(
+        models.ResumeVersion.user_id == user_id,
+        models.ResumeVersion.jd_id == jd_id,
+    ).count() + 1
+
+    ext = os.path.splitext(filename)[1]
+    saved_filename = f"resume_v{version_no}{ext}"
+    user_folder = os.path.join(UPLOAD_DIR, f"user_{user_id}")
+    os.makedirs(user_folder, exist_ok=True)
+    file_path = os.path.join(user_folder, saved_filename)
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    try:
+        extracted_text = extract_text(file_path)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+    resume_version = models.ResumeVersion(
+        user_id=user_id,
+        jd_id=jd_id,
+        version_no=version_no,
+        file_name=saved_filename,
+        file_path=file_path,
+        extracted_text=extracted_text,
+    )
+    db.add(resume_version)
+    db.commit()
+    db.refresh(resume_version)
+
+    session_data["resume_version_id"] = resume_version.id
+    session_data["resume_text"] = extracted_text
+    session_data["resume_file_path"] = file_path
+    session_data["resume_file_name"] = saved_filename
+
+    return {
+        "success": True,
+        "session_id": session_key,
+        "message": "Resume uploaded successfully",
+        "resume_version_id": resume_version.id,
+    }
+
+
+@router.post("/workflow/upload/job-description/text")
+def workflow_upload_job_description_text(
+    text: str = Body(..., embed=True),
+    session_id: str | None = None,
+    db: Session = Depends(get_db),
+):
+    session_key = _ensure_session(session_id)
+    session_data = workflow_sessions[session_key]
+    user_id = session_data["user_id"]
+    jd_id = session_data["jd_id"]
+    _ensure_user_and_job_description(db, user_id, jd_id)
+
+    jd = db.query(models.JobDescription).filter(models.JobDescription.id == jd_id).first()
+    if not jd:
+        jd = models.JobDescription(
+            id=jd_id,
+            user_id=user_id,
+            title="Imported Job Description",
+            description=text,
+        )
+        db.add(jd)
+    else:
+        jd.description = text
+    db.commit()
+
+    session_data["jd_text"] = text
+    if session_data.get("resume_text"):
+        session_data["results"] = _build_results_payload(session_data["resume_text"], text)
+
+    return {
+        "success": True,
+        "session_id": session_key,
+        "message": "Job description processed",
+    }
+
+
+@router.post("/workflow/upload/job-description")
+async def workflow_upload_job_description(
+    file: UploadFile = File(...),
+    session_id: str | None = None,
+    db: Session = Depends(get_db),
+):
+    filename = file.filename or "job-description.txt"
+    if not filename.lower().endswith((".pdf", ".docx", ".txt")):
+        raise HTTPException(400, "Only PDF, DOCX, and TXT files are allowed")
+
+    session_key = _ensure_session(session_id)
+    session_data = workflow_sessions[session_key]
+    user_id = session_data["user_id"]
+    jd_id = session_data["jd_id"]
+    _ensure_user_and_job_description(db, user_id, jd_id)
+
+    user_folder = os.path.join(UPLOAD_DIR, f"user_{user_id}")
+    os.makedirs(user_folder, exist_ok=True)
+    file_path = os.path.join(user_folder, f"job_description{os.path.splitext(filename)[1]}")
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    try:
+        text = _extract_text_from_upload(file_path, filename)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+    jd = db.query(models.JobDescription).filter(models.JobDescription.id == jd_id).first()
+    if not jd:
+        jd = models.JobDescription(
+            id=jd_id,
+            user_id=user_id,
+            title="Imported Job Description",
+            description=text,
+        )
+        db.add(jd)
+    else:
+        jd.description = text
+    db.commit()
+
+    session_data["jd_text"] = text
+    if session_data.get("resume_text"):
+        session_data["results"] = _build_results_payload(session_data["resume_text"], text)
+
+    return {
+        "success": True,
+        "session_id": session_key,
+        "message": "Job description processed",
+    }
+
+
+@router.post("/workflow/save-resume")
+def workflow_save_resume(payload: dict = Body(...), db: Session = Depends(get_db)):
+    session_id = payload.get("session_id")
+    target_jd = str(payload.get("target_jd", "current")).lower()
+
+    if not session_id or session_id not in workflow_sessions:
+        raise HTTPException(404, "No active session")
+
+    session_data = workflow_sessions[session_id]
+    user_id = session_data.get("user_id", 1)
+    current_jd_id = session_data.get("jd_id", 1)
+
+    target_jd_id = current_jd_id
+    if target_jd == "previous":
+        target_jd_id = _get_previous_jd_id(db, user_id, current_jd_id)
+
+    _ensure_user_and_job_description(db, user_id, target_jd_id)
+
+    resume_text = session_data.get("resume_text")
+    file_path = session_data.get("resume_file_path")
+    file_name = session_data.get("resume_file_name") or "resume.pdf"
+
+    if not resume_text or not file_path or not os.path.exists(file_path):
+        raise HTTPException(400, "No resume available to save yet")
+
+    version_no = (
+        db.query(models.ResumeVersion)
+        .filter(
+            models.ResumeVersion.user_id == user_id,
+            models.ResumeVersion.jd_id == target_jd_id,
+        )
+        .count() + 1
+    )
+
+    saved_filename = os.path.basename(file_path)
+    resume_version = models.ResumeVersion(
+        user_id=user_id,
+        jd_id=target_jd_id,
+        version_no=version_no,
+        file_name=saved_filename,
+        file_path=file_path,
+        extracted_text=resume_text,
+    )
+    db.add(resume_version)
+    db.commit()
+    db.refresh(resume_version)
+
+    results = session_data.get("results")
+    if results:
+        match_result = models.MatchResult(
+            resume_version_id=resume_version.id,
+            score=results.get("score"),
+            matched_skills=results.get("matchedSkills", []),
+            missing_skills=results.get("missingSkills", []),
+            ai_suggestions=[],
+        )
+        db.add(match_result)
+        db.commit()
+
+    return {
+        "success": True,
+        "message": f"Resume saved for {'previous' if target_jd == 'previous' else 'current'} job description",
+        "resume_version_id": resume_version.id,
+        "jd_id": target_jd_id,
+    }
+
+
+@router.get("/workflow/results")
+def workflow_get_results(session_id: str | None = None, db: Session = Depends(get_db)):
+    if not session_id or session_id not in workflow_sessions:
+        return {"success": False, "message": "No active session"}
+
+    session_data = workflow_sessions[session_id]
+    if not session_data.get("results") and session_data.get("resume_text") and session_data.get("jd_text"):
+        session_data["results"] = _build_results_payload(session_data["resume_text"], session_data["jd_text"])
+
+    if not session_data.get("results"):
+        return {"success": False, "message": "No analysis results available yet"}
+
+    return {"success": True, **session_data["results"]}
 
 
 @router.post("/upload/resume")
