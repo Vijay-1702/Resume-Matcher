@@ -5,9 +5,9 @@ from app import models
 from app.parser import extract_text
 from app.skill_extractor import analyze_skills
 from app.matcher import calculate_match_score
+from app.ai_suggestions import generate_suggestions
 import os
 import shutil
-from app.ai_suggestions import generate_suggestions
 
 router = APIRouter()
 
@@ -168,6 +168,8 @@ def match_resume(
         "final_score": result["final_score"],
         "semantic_score": result["semantic_score"],
         "skill_score": result["skill_score"],
+        "experience_score": result["experience_score"],
+        "education_score": result["education_score"],
         "matched_skills": result["matched_skills"],
         "missing_skills": result["missing_skills"],
         "resume_skills": result["resume_skills"],
@@ -260,6 +262,8 @@ async def analyze_resume(
         "final_score": result["final_score"],
         "semantic_score": result["semantic_score"],
         "skill_score": result["skill_score"],
+        "experience_score": result["experience_score"],
+        "education_score": result["education_score"],
         "matched_skills": result["matched_skills"],
         "missing_skills": result["missing_skills"],
         "resume_skills": result["resume_skills"],
@@ -345,8 +349,6 @@ def compare_versions(
         if s not in latest["missing_skills"]
     ]
 
-    still_missing = latest["missing_skills"]
-
     return {
         "previous_version": previous["version_no"],
         "previous_score": previous["score"],
@@ -355,16 +357,16 @@ def compare_versions(
         "improvement": improvement,
         "improved": improvement > 0,
         "newly_added_skills": new_skills,
-        "still_missing_skills": still_missing,
+        "still_missing_skills": latest["missing_skills"],
         "all_versions": scores
     }
+
 
 @router.post("/suggestions/{resume_version_id}")
 def get_ai_suggestions(
     resume_version_id: int,
     db: Session = Depends(get_db)
 ):
-    # 1. Get match result
     match_result = db.query(models.MatchResult).filter(
         models.MatchResult.resume_version_id == resume_version_id
     ).first()
@@ -372,7 +374,6 @@ def get_ai_suggestions(
     if not match_result:
         raise HTTPException(404, "No match result found. Run /analyze first.")
 
-    # 2. Get JD title
     resume = db.query(models.ResumeVersion).filter(
         models.ResumeVersion.id == resume_version_id
     ).first()
@@ -381,7 +382,6 @@ def get_ai_suggestions(
         models.JobDescription.id == resume.jd_id
     ).first()
 
-    # 3. Generate suggestions
     suggestions = generate_suggestions(
         matched_skills=match_result.matched_skills or [],
         missing_skills=match_result.missing_skills or [],
@@ -389,7 +389,6 @@ def get_ai_suggestions(
         jd_title=jd.title if jd else "the target role"
     )
 
-    # 4. Save suggestions to DB
     match_result.ai_suggestions = suggestions
     db.commit()
 
@@ -399,4 +398,72 @@ def get_ai_suggestions(
         "matched_skills": match_result.matched_skills,
         "missing_skills": match_result.missing_skills,
         "ai_suggestions": suggestions
+    }
+
+
+@router.get("/versions-scored/{user_id}/{jd_id}")
+def get_all_versions_scored(
+    user_id: int,
+    jd_id: int,
+    db: Session = Depends(get_db)
+):
+    versions = db.query(models.ResumeVersion).filter(
+        models.ResumeVersion.user_id == user_id,
+        models.ResumeVersion.jd_id == jd_id
+    ).order_by(models.ResumeVersion.version_no).all()
+
+    if not versions:
+        raise HTTPException(404, "No versions found")
+
+    jd = db.query(models.JobDescription).filter(
+        models.JobDescription.id == jd_id
+    ).first()
+
+    scored_versions = []
+    for v in versions:
+        match = db.query(models.MatchResult).filter(
+            models.MatchResult.resume_version_id == v.id
+        ).first()
+
+        scored_versions.append({
+            "version_no": v.version_no,
+            "file_name": v.file_name,
+            "uploaded_at": v.uploaded_at,
+            "score": match.score if match else None,
+            "matched_skills": match.matched_skills if match else [],
+            "missing_skills": match.missing_skills if match else [],
+            "ai_suggestions": match.ai_suggestions if match else []
+        })
+
+    improvements = []
+    for i in range(1, len(scored_versions)):
+        current = scored_versions[i]
+        previous = scored_versions[i - 1]
+
+        if current["score"] and previous["score"]:
+            diff = round(current["score"] - previous["score"], 2)
+            newly_added = [
+                s for s in previous["missing_skills"]
+                if s not in current["missing_skills"]
+            ]
+            improvements.append({
+                "from_version": previous["version_no"],
+                "to_version": current["version_no"],
+                "score_change": diff,
+                "improved": diff > 0,
+                "newly_added_skills": newly_added,
+                "still_missing": current["missing_skills"]
+            })
+
+    return {
+        "user_id": user_id,
+        "jd_id": jd_id,
+        "jd_title": jd.title if jd else "Unknown",
+        "total_versions": len(scored_versions),
+        "versions": scored_versions,
+        "improvements": improvements,
+        "best_version": max(
+            scored_versions,
+            key=lambda x: x["score"] or 0
+        )
     }
