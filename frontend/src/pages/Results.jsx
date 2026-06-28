@@ -107,6 +107,18 @@ function Results() {
         if (!mounted) return;
         
         if (res?.data?.success) {
+          let suggestions = res.data.recommendations || res.data.ai_suggestions || res.data.aiSuggestions || [];
+          const resumeVersionId = localStorage.getItem("resumeVersionId") || res.data.resume_version_id;
+
+          if (resumeVersionId && (!Array.isArray(suggestions) || suggestions.length === 0)) {
+            try {
+              const suggestionRes = await api.post(`suggestions/${resumeVersionId}`);
+              suggestions = suggestionRes.data.ai_suggestions || [];
+            } catch (suggestionErr) {
+              console.warn("Unable to fetch AI suggestions", suggestionErr);
+            }
+          }
+
           setData({
             score: res.data.score || 0,
             matchedSkills: res.data.matchedSkills || [],
@@ -115,9 +127,9 @@ function Results() {
             skillScore: res.data.skillScore,
             resumeSkills: res.data.resumeSkills,
             jdSkills: res.data.jdSkills,
-            recommendations: res.data.recommendations,
-            ai_suggestions: res.data.ai_suggestions,
-            aiSuggestions: res.data.aiSuggestions,
+            recommendations: suggestions,
+            ai_suggestions: suggestions,
+            aiSuggestions: suggestions,
           });
         } else {
           setError(res?.data?.message || "Failed to fetch results");

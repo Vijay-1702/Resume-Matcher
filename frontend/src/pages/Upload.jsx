@@ -69,6 +69,7 @@ function Upload() {
       }
 
       const sessionId = resumeResponse.data.session_id;
+      localStorage.setItem("resumeVersionId", resumeResponse.data.resume_version_id);
       setCurrentStep(2);
       setSuccess("Resume uploaded. Processing job description...");
 
