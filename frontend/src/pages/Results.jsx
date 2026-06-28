@@ -105,6 +105,11 @@ function Results() {
   const [resumeSaved, setResumeSaved] = useState(false);
   const [saveTarget, setSaveTarget] = useState("current");
   const [saveMessage, setSaveMessage] = useState("");
+  const [jobDescriptions, setJobDescriptions] = useState([]);
+  const [showSavePanel, setShowSavePanel] = useState(false);
+  const [saveMode, setSaveMode] = useState("existing");
+  const [selectedJd, setSelectedJd] = useState(null);
+  const [newJdTitle, setNewJdTitle] = useState("");
   const [data, setData] = useState({
     score: 0,
     matchedSkills: [],
@@ -154,6 +159,18 @@ function Results() {
     };
 
     fetchResults();
+    // fetch user's job descriptions for save options
+    (async () => {
+      try {
+        const rawUser = localStorage.getItem("authUser");
+        if (!rawUser) return;
+        const user = JSON.parse(rawUser);
+        const jdRes = await api.get(`job-descriptions/${user.id}`);
+        setJobDescriptions(jdRes.data || []);
+      } catch (e) {
+        // ignore
+      }
+    })();
     return () => (mounted = false);
   }, []);
 
@@ -169,22 +186,35 @@ function Results() {
       setError("No active session. Please upload files first.");
       return;
     }
-
     try {
-      const res = await api.post("workflow/save-resume", {
-        session_id: sessionId,
-        target_jd: saveTarget,
-      });
+      const rawUser = localStorage.getItem("authUser");
+      if (!rawUser) {
+        setError("Not signed in.");
+        return;
+      }
+      const user = JSON.parse(rawUser);
 
+      const payload = { session_id: sessionId, user_id: user.id };
+      if (saveMode === "existing") {
+        if (!selectedJd) { setError("Select a job description"); return; }
+        payload.target_type = "existing";
+        payload.jd_id = selectedJd;
+      } else {
+        if (!newJdTitle) { setError("Enter a title for the new JD"); return; }
+        payload.target_type = "new";
+        payload.new_jd_title = newJdTitle;
+      }
+
+      const res = await api.post("workflow/save-resume", payload);
       if (res?.data?.success) {
         setResumeSaved(true);
-        setSaveMessage(
-          `Resume saved for ${saveTarget === "previous" ? "the previous" : "the current"} job description.`
-        );
+        setSaveMessage(`Resume saved (v${res.data.version_no}) under JD ${res.data.jd_id}`);
+        setShowSavePanel(false);
       } else {
         setError(res?.data?.message || "Unable to save resume right now.");
       }
     } catch (err) {
+      console.error(err);
       setError(getErrorMessage(err, "Unable to save resume right now."));
     }
   };
@@ -260,40 +290,47 @@ function Results() {
         </section>
 
         <div className="results-actions">
-          <div className="save-choice">
-            <span>Save for:</span>
-            <label>
-              <input
-                type="radio"
-                value="current"
-                checked={saveTarget === "current"}
-                onChange={() => setSaveTarget("current")}
-              />
-              Current JD
-            </label>
-            <label>
-              <input
-                type="radio"
-                value="previous"
-                checked={saveTarget === "previous"}
-                onChange={() => setSaveTarget("previous")}
-              />
-              Previous JD
-            </label>
+          <div style={{display:'flex', alignItems:'center', gap:12}}>
+            <button className="upload-submit-btn" type="button" onClick={() => setShowSavePanel((s) => !s)}>
+              {resumeSaved ? "Resume Saved" : "Save Resume"}
+            </button>
+            <button className="results-secondary-btn" type="button" onClick={() => { window.location.href = "/history"; }}>
+              Resume History
+            </button>
           </div>
 
-          <button className="upload-submit-btn" type="button" onClick={handleSaveResume}>
-            {resumeSaved ? "Resume Saved" : "Save Resume"}
-          </button>
-          <button
-            className="results-secondary-btn"
-            type="button"
-            onClick={() => {
-              window.location.href = "/history";
-            }}
-          >
-            Resume History
-          </button>
+          {showSavePanel && (
+            <div className="save-panel">
+              <div style={{marginBottom:8}}>
+                <label>
+                  <input type="radio" checked={saveMode === 'existing'} onChange={() => setSaveMode('existing')} /> Save to existing JD
+                </label>
+                <label style={{marginLeft:12}}>
+                  <input type="radio" checked={saveMode === 'new'} onChange={() => setSaveMode('new')} /> Create new JD
+                </label>
+              </div>
+
+              {saveMode === 'existing' ? (
+                <div>
+                  <select value={selectedJd || ''} onChange={(e) => setSelectedJd(Number(e.target.value))}>
+                    <option value="">Select a job description...</option>
+                    {jobDescriptions.map((jd) => (
+                      <option key={jd.id} value={jd.id}>{jd.title || `(JD ${jd.id})`}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div>
+                  <input placeholder="New JD title" value={newJdTitle} onChange={(e) => setNewJdTitle(e.target.value)} />
+                </div>
+              )}
+
+              <div style={{marginTop:8}}>
+                <button className="upload-submit-btn" onClick={handleSaveResume}>Confirm Save</button>
+                <button className="results-secondary-btn" style={{marginLeft:8}} onClick={() => setShowSavePanel(false)}>Cancel</button>
+              </div>
+            </div>
+          )}
           <button
             className="upload-submit-btn"
             type="button"

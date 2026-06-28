@@ -30,7 +30,13 @@ class JDTextInput(BaseModel):
 
 class SaveResumeInput(BaseModel):
     session_id: str
-    target_jd: str = "current"
+    user_id: int | None = None
+    # 'existing' or 'new'
+    target_type: str = "existing"
+    jd_id: int | None = None
+    new_jd_title: str | None = None
+    # if provided, will use session jd_text unless overridden
+    new_jd_description: str | None = None
 
 
 class AuthInput(BaseModel):
@@ -260,20 +266,96 @@ def workflow_results(session_id: str):
 
 
 @router.post("/workflow/save-resume")
-def workflow_save_resume(payload: SaveResumeInput):
+def workflow_save_resume(payload: SaveResumeInput, db: Session = Depends(get_db)):
     session = workflow_sessions.get(payload.session_id)
     if not session:
         raise HTTPException(404, "Workflow session not found")
 
+    # Require user_id to associate saved resume
+    if not payload.user_id:
+        raise HTTPException(400, "user_id is required to save resume")
+
+    # Determine JD to save under
+    if payload.target_type == "existing":
+        if not payload.jd_id:
+            raise HTTPException(400, "jd_id is required for existing target")
+        jd = db.query(models.JobDescription).filter(
+            models.JobDescription.id == payload.jd_id,
+            models.JobDescription.user_id == payload.user_id
+        ).first()
+        if not jd:
+            raise HTTPException(404, "Job description not found")
+    else:
+        # create new JD using provided description or session jd_text
+        jd_text = payload.new_jd_description or session.get("jd_text")
+        if not jd_text:
+            raise HTTPException(400, "No job description available to create new JD")
+        jd = models.JobDescription(
+            user_id=payload.user_id,
+            title=payload.new_jd_title or "Untitled JD",
+            description=jd_text
+        )
+        db.add(jd)
+        db.commit()
+        db.refresh(jd)
+
+    # Save resume file from session into user folder and create ResumeVersion
+    # session contains resume_path saved under uploads/workflow/<session>
+    src_path = session.get("resume_path")
+    if not src_path or not os.path.exists(src_path):
+        raise HTTPException(400, "Resume file not available to save")
+
+    user_folder = os.path.join(UPLOAD_DIR, f"user_{payload.user_id}")
+    os.makedirs(user_folder, exist_ok=True)
+
+    version_no = db.query(models.ResumeVersion).filter(
+        models.ResumeVersion.user_id == payload.user_id,
+        models.ResumeVersion.jd_id == jd.id
+    ).count() + 1
+
+    ext = os.path.splitext(session.get("resume_filename", "resume"))[1] or ".pdf"
+    saved_filename = f"resume_v{version_no}{ext}"
+    dest_path = os.path.join(user_folder, saved_filename)
+    shutil.copyfile(src_path, dest_path)
+
+    extracted_text = session.get("resume_text")
+
+    resume_version = models.ResumeVersion(
+        user_id=payload.user_id,
+        jd_id=jd.id,
+        version_no=version_no,
+        file_name=saved_filename,
+        file_path=dest_path,
+        extracted_text=extracted_text
+    )
+    db.add(resume_version)
+    db.commit()
+    db.refresh(resume_version)
+
+    # run matching immediately and store result
+    result = calculate_match_score(extracted_text or "", jd.description)
+    match_result = models.MatchResult(
+        resume_version_id=resume_version.id,
+        score=result.get("final_score"),
+        matched_skills=result.get("matched_skills"),
+        missing_skills=result.get("missing_skills"),
+        ai_suggestions=[]
+    )
+    db.add(match_result)
+    db.commit()
+
     session["saved"] = True
-    session["save_target"] = payload.target_jd
+    session["save_target"] = jd.id
     session["saved_at"] = datetime.utcnow().isoformat()
 
     return {
         "success": True,
-        "message": "Resume saved successfully",
+        "message": "Resume saved to job description",
         "session_id": payload.session_id,
-        "target_jd": payload.target_jd,
+        "jd_id": jd.id,
+        "resume_version_id": resume_version.id,
+        "version_no": version_no,
+        "score": result.get("final_score")
     }
 
 
@@ -555,6 +637,7 @@ def get_version_history(
         ).first()
 
         result.append({
+            "resume_version_id": v.id,
             "version_no": v.version_no,
             "file_name": v.file_name,
             "uploaded_at": v.uploaded_at,
@@ -661,3 +744,78 @@ def get_ai_suggestions(
         "missing_skills": match_result.missing_skills,
         "ai_suggestions": suggestions
     }
+
+
+@router.get("/job-descriptions/{user_id}")
+def list_job_descriptions(user_id: int, db: Session = Depends(get_db)):
+    jds = db.query(models.JobDescription).filter(models.JobDescription.user_id == user_id).order_by(models.JobDescription.created_at.desc()).all()
+    return [
+        {
+            "id": jd.id,
+            "title": jd.title,
+            "description_preview": (jd.description or "")[:300],
+            "created_at": jd.created_at
+        }
+        for jd in jds
+    ]
+
+
+@router.post("/job-descriptions")
+def create_job_description(payload: JDTextInput, user_id: int, title: str | None = None, db: Session = Depends(get_db)):
+    jd = models.JobDescription(
+        user_id=user_id,
+        title=title or "Untitled JD",
+        description=payload.text
+    )
+    db.add(jd)
+    db.commit()
+    db.refresh(jd)
+    return {"id": jd.id, "title": jd.title}
+
+
+@router.post("/compare-resumes")
+class CompareInput(BaseModel):
+    resume_a_id: int
+    resume_b_id: int
+
+
+@router.post("/compare-resumes")
+def compare_two_resumes(payload: CompareInput, db: Session = Depends(get_db)):
+    resume_a_id = payload.resume_a_id
+    resume_b_id = payload.resume_b_id
+    a = db.query(models.ResumeVersion).filter(models.ResumeVersion.id == resume_a_id).first()
+    b = db.query(models.ResumeVersion).filter(models.ResumeVersion.id == resume_b_id).first()
+    if not a or not b:
+        raise HTTPException(404, "One or both resume versions not found")
+
+    a_text = a.extracted_text or ""
+    b_text = b.extracted_text or ""
+
+    # attempt to use google generative ai for a richer comparison if available
+    summary = None
+    try:
+        import google.generativeai as genai
+        # Expect the API key to be set in env GOOGLE_API_KEY
+        genai.configure(api_key=os.environ.get("GOOGLE_API_KEY"))
+        prompt = (
+            "Compare the two resume texts. List what improved in the second resume compared to the first, "
+            "and list what is still lacking. Provide a short bullet summary.\n\nFirst Resume:\n" + a_text[:4000] + "\n\nSecond Resume:\n" + b_text[:4000]
+        )
+        resp = genai.text.generate(model="gemini-pro", prompt=prompt, max_output_tokens=512)
+        summary = resp.text
+    except Exception:
+        # fallback: simple diff using skills from match results
+        match_a = db.query(models.MatchResult).filter(models.MatchResult.resume_version_id == a.id).first()
+        match_b = db.query(models.MatchResult).filter(models.MatchResult.resume_version_id == b.id).first()
+        a_missing = set(match_a.missing_skills or []) if match_a else set()
+        b_missing = set(match_b.missing_skills or []) if match_b else set()
+        newly_added = sorted(list(a_missing - b_missing))
+        still_missing = sorted(list(b_missing))
+        summary = {
+            "previous_score": match_a.score if match_a else None,
+            "latest_score": match_b.score if match_b else None,
+            "newly_added_skills": newly_added,
+            "still_missing_skills": still_missing,
+        }
+
+    return {"comparison": summary}

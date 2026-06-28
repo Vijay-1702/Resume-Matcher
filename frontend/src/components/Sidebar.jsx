@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./Sidebar.css";
 
@@ -30,12 +30,16 @@ export default function Sidebar() {
   const handleLogout = () => {
     localStorage.removeItem("authUser");
     localStorage.removeItem("sessionId");
+    setUser(null);
     navigate("/");
   };
 
-  if (!user) return null;
+  const location = useLocation();
 
-  const displayName = user.username || user.name || user.email || "User";
+  // hide sidebar entirely on the public home (login) page
+  if (location?.pathname === "/") return null;
+
+  const displayName = user?.username || user?.name || user?.email || "User";
 
   return (
     <div className="sidebar-container">
@@ -45,28 +49,30 @@ export default function Sidebar() {
         <span className="bar" />
       </div>
 
-      <aside className="app-sidebar">
-        <div className="sidebar-header">
-          <div className="avatar">{displayName.charAt(0).toUpperCase()}</div>
-          <div className="user-name">{displayName}</div>
-        </div>
+      {user && (
+        <aside className="app-sidebar">
+          <div className="sidebar-header">
+            <div className="avatar">{displayName.charAt(0).toUpperCase()}</div>
+            <div className="user-name">{displayName}</div>
+          </div>
 
-        <nav className="sidebar-nav">
-          <NavLink to="/upload" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>
-            Upload
-          </NavLink>
-          <NavLink to="/results" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>
-            Results
-          </NavLink>
-          <NavLink to="/history" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>
-            History
-          </NavLink>
-        </nav>
+          <nav className="sidebar-nav">
+            <NavLink to="/upload" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>
+              Upload
+            </NavLink>
+            <NavLink to="/results" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>
+              Results
+            </NavLink>
+            <NavLink to="/history" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>
+              History
+            </NavLink>
+          </nav>
 
-        <div className="sidebar-footer">
-          <button className="logout-btn" onClick={handleLogout}>Logout</button>
-        </div>
-      </aside>
+          <div className="sidebar-footer">
+            <button className="logout-btn" onClick={handleLogout}>Logout</button>
+          </div>
+        </aside>
+      )}
     </div>
   );
 }

@@ -66,6 +66,7 @@ function Home() {
       }
 
       localStorage.setItem("authUser", JSON.stringify(res.data.user));
+      localStorage.setItem("userId", String(res.data.user.id));
       setMessage(isSignup ? "Account created. Opening upload page..." : "Signed in. Opening upload page...");
       setTimeout(() => navigate("/upload"), 500);
     } catch (err) {

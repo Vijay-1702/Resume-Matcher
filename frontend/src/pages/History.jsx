@@ -22,27 +22,54 @@ function History() {
   const [error, setError] = useState("");
   const [history, setHistory] = useState([]);
   const [comparison, setComparison] = useState(null);
+  const [jobDescriptions, setJobDescriptions] = useState([]);
+  const [selectedJd, setSelectedJd] = useState(null);
+  const [selectedForCompare, setSelectedForCompare] = useState([]);
 
   useEffect(() => {
     let mounted = true;
-    const fetchHistory = async () => {
+    const fetchJobData = async () => {
       try {
         const userId = Number(localStorage.getItem("userId") || defaultUserId);
-        const jdId = Number(localStorage.getItem("jdId") || defaultJdId);
 
-        const [historyRes, compareRes] = await Promise.all([
-          api.get(`version-history/${userId}/${jdId}`),
-          api.get(`version-compare/${userId}/${jdId}`).catch((err) => {
-            if (err.response?.status === 400) return null;
-            throw err;
-          }),
-        ]);
+        // fetch user's JDs
+        const jdsRes = await api.get(`job-descriptions/${userId}`);
+        const jds = Array.isArray(jdsRes?.data) ? jdsRes.data : [];
+        if (!mounted) return;
+        setJobDescriptions(jds);
+        const jdToUse = jds[0]?.id || defaultJdId;
+        setSelectedJd(jdToUse);
+      } catch (err) {
+        console.warn("Failed to fetch job descriptions.", err);
+        setError("Unable to load job descriptions right now.");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    fetchJobData();
+    return () => (mounted = false);
+  }, []);
+
+  // when selectedJd changes, fetch versions and comparison
+  useEffect(() => {
+    if (!selectedJd) return;
+    let mounted = true;
+    const fetchVersions = async () => {
+      setLoading(true);
+      try {
+        const userId = Number(localStorage.getItem("userId") || defaultUserId);
+        const historyRes = await api.get(`version-history/${userId}/${selectedJd}`);
+        const compareRes = await api.get(`version-compare/${userId}/${selectedJd}`).catch((err) => {
+          if (err.response?.status === 400) return null;
+          throw err;
+        });
 
         if (!mounted) return;
-
         const versions = Array.isArray(historyRes?.data?.versions) ? historyRes.data.versions : [];
         setHistory(versions);
         setComparison(compareRes?.data || null);
+        setSelectedForCompare([]);
       } catch (err) {
         console.warn("Failed to fetch resume history.", err);
         setError("Unable to load version history right now.");
@@ -51,9 +78,9 @@ function History() {
       }
     };
 
-    fetchHistory();
+    fetchVersions();
     return () => (mounted = false);
-  }, []);
+  }, [selectedJd]);
 
   return (
     <div className="history-page">
@@ -102,7 +129,17 @@ function History() {
             ) : history.length === 0 ? (
               <div className="empty-state">No resume versions found for this job description yet.</div>
             ) : (
-              history.map((version) => (
+              <>
+                <div className="jd-select">
+                  <label>Select Job Description:</label>
+                  <select value={selectedJd || ""} onChange={(e) => setSelectedJd(Number(e.target.value))}>
+                    {jobDescriptions.map((jd) => (
+                      <option key={jd.id} value={jd.id}>{jd.title || `(JD ${jd.id})`}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {history.map((version) => (
                 <article className="history-card" key={version.resume_version_id || version.version_no}>
                   <div className="history-card-main">
                     <div>
@@ -122,12 +159,67 @@ function History() {
                       <h4>Missing skills</h4>
                       <p>{(version.missing_skills || []).join(", ") || "—"}</p>
                     </div>
+                    <div className="history-card-actions">
+                      <label>
+                        <input
+                          type="checkbox"
+                          value={version.resume_version_id}
+                          checked={selectedForCompare.includes(version.resume_version_id)}
+                          onChange={(e) => {
+                            const id = version.resume_version_id;
+                            setSelectedForCompare((prev) => {
+                              if (prev.includes(id)) return prev.filter((x) => x !== id);
+                              return prev.length < 2 ? [...prev, id] : prev;
+                            });
+                          }}
+                        /> Compare
+                      </label>
+                    </div>
                   </div>
                 </article>
-              ))
+                ))}
+
+                <div style={{marginTop:12}}>
+                  <button
+                    disabled={selectedForCompare.length !== 2}
+                    onClick={async () => {
+                      try {
+                        setLoading(true);
+                        const res = await api.post("compare-resumes", {
+                          resume_a_id: selectedForCompare[0],
+                          resume_b_id: selectedForCompare[1],
+                        });
+                        setComparison(res.data.comparison || res.data);
+                      } catch (err) {
+                        setError(getErrorMessage(err, "Comparison failed"));
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                  >Compare Selected</button>
+                </div>
+              </>
             )}
           </div>
         </section>
+        {comparison && (
+          <section style={{marginTop:16}} className="comparison-output">
+            <h2>Comparison Result</h2>
+            {typeof comparison === "string" ? (
+              <pre style={{whiteSpace:'pre-wrap'}}>{comparison}</pre>
+            ) : (
+              <div>
+                <p>Previous score: {comparison.previous_score ?? "—"}</p>
+                <p>Latest score: {comparison.latest_score ?? "—"}</p>
+                <p>Improved: {String(comparison.improved)}</p>
+                <h4>Newly added skills</h4>
+                <ul>{(comparison.newly_added_skills || []).map((s) => <li key={s}>{s}</li>)}</ul>
+                <h4>Still missing skills</h4>
+                <ul>{(comparison.still_missing_skills || []).map((s) => <li key={s}>{s}</li>)}</ul>
+              </div>
+            )}
+          </section>
+        )}
       </main>
     </div>
   );
