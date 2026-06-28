@@ -1,16 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import "./Upload.css";
 
-const workflowSteps = [
-  "Resume Upload",
-  "JD Upload",
-  "Text Extraction",
-  "Skill Extraction",
-  "Matching",
-  "Results Screen",
-];
+
 
 const getErrorMessage = (err, fallback) =>
   err.response?.data?.message ||
@@ -20,6 +13,10 @@ const getErrorMessage = (err, fallback) =>
 
 function Upload() {
   const navigate = useNavigate();
+  useEffect(() => {
+    const authUser = localStorage.getItem("authUser");
+    if (!authUser) navigate("/");
+  }, [navigate]);
   const [resume, setResume] = useState(null);
   const [jd, setJd] = useState(null);
   const [jdInputMode, setJdInputMode] = useState("text");
@@ -130,25 +127,6 @@ function Upload() {
           {error && <div className="message error-message">{error}</div>}
           {success && <div className="message success-message">{success}</div>}
 
-          <ol className="workflow-steps" aria-label="Resume matching workflow">
-            {workflowSteps.map((step, index) => {
-              const stepNumber = index + 1;
-              const status =
-                currentStep > stepNumber
-                  ? "complete"
-                  : currentStep === stepNumber
-                    ? "active"
-                    : "";
-
-              return (
-                <li key={step} className={`workflow-step ${status}`}>
-                  <span className="workflow-index">{stepNumber}</span>
-                  <span>{step}</span>
-                </li>
-              );
-            })}
-          </ol>
-
           <div className="upload-control">
             <h3>Resume Upload</h3>
             <label htmlFor="resume-upload">Select resume</label>
@@ -204,7 +182,7 @@ function Upload() {
                 <input
                   id="jd-upload"
                   type="file"
-                  accept=".pdf,.doc,.docx,.txt"
+                  accept=".pdf,.docx,.txt"
                   onChange={(e) => setJd(e.target.files[0])}
                 />
                 <div className="file-meta">
