@@ -1,5 +1,5 @@
 .history-page {
-  max-width: 820px;
+  max-width: 980px;
   margin: 0 auto;
   padding: 54px 24px 72px;
   background: radial-gradient(circle at top right, rgba(106, 212, 255, 0.12), transparent 32%),
@@ -18,54 +18,105 @@
 .history-main h1 { margin: 0 0 8px 0; font-size: clamp(1.9rem, 3vw, 2.6rem); }
 .history-main .sub { color: var(--text); margin-bottom: 22px; line-height: 1.7; }
 
-.history-table-wrapper {
-  border-radius: 28px;
-  overflow: hidden;
-  border: 1px solid rgba(170, 59, 255, 0.1);
+.history-block { display: flex; flex-direction: column; gap: 24px; }
+
+.comparison-summary {
+  border-radius: 24px;
+  padding: 20px;
   background: rgba(250, 248, 255, 0.95);
-  box-shadow: 0 24px 48px rgba(109, 76, 255, 0.08);
+  border: 1px solid rgba(170, 59, 255, 0.12);
 }
 
-.history-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: transparent;
+.comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 14px;
 }
 
-.history-table thead th {
-  text-align: left;
-  padding: 16px 14px;
-  font-weight: 600;
+.comparison-card {
+  border-radius: 18px;
+  padding: 16px;
+  background: white;
+  border: 1px solid rgba(118, 95, 255, 0.12);
+}
+
+.comparison-card.latest {
+  background: linear-gradient(135deg, rgba(118, 95, 255, 0.12), rgba(106, 212, 255, 0.08));
+}
+
+.comparison-label {
+  display: inline-block;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   color: var(--text-h);
-  border-bottom: 1px solid rgba(118, 95, 255, 0.12);
-  background: rgba(250, 248, 255, 0.9);
 }
 
-.history-table tbody td {
-  padding: 16px 14px;
-  border-bottom: 1px solid rgba(118, 95, 255, 0.08);
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.92);
+.score-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 74px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(118, 95, 255, 0.14);
+  color: var(--text-h);
+  font-weight: 700;
+  margin: 10px 0;
 }
 
-.history-table tbody tr:last-child td {
-  border-bottom: none;
+.history-list {
+  display: grid;
+  gap: 14px;
 }
 
-.history-table tbody tr {
-  transition: transform 0.2s ease, background 0.2s ease;
+.history-card {
+  border-radius: 20px;
+  padding: 16px 18px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(118, 95, 255, 0.12);
+  box-shadow: 0 12px 28px rgba(109, 76, 255, 0.05);
 }
 
-.history-table tbody tr:hover td {
-  background: rgba(236, 226, 255, 0.9);
-  transform: translateX(3px);
+.history-card-main {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
 }
 
-@media (max-width: 680px) {
+.history-card h3 { margin: 0 0 4px 0; }
+.history-card p { margin: 0; color: var(--text); }
+.history-date { font-size: 0.95rem; color: var(--text-h); }
+
+.history-card-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.history-card-meta h4 {
+  margin: 0 0 6px 0;
+  font-size: 0.95rem;
+  color: var(--text-h);
+}
+
+.empty-state {
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(250, 248, 255, 0.95);
+  color: var(--text-h);
+}
+
+@media (max-width: 760px) {
   .history-page { padding: 32px 16px 48px; }
   .history-main { padding: 28px 24px; }
-  .history-table-wrapper { border: none; }
-  .history-table thead { display: none; }
-  .history-table tbody td { display: block; width: 100%; }
-  .history-table tbody tr { margin-bottom: 16px; display: block; border-radius: 18px; background: rgba(245, 243, 255, 0.95); padding: 14px; }
+  .comparison-grid,
+  .history-card-meta {
+    grid-template-columns: 1fr;
+  }
+  .history-card-main { flex-direction: column; align-items: flex-start; }
 }
