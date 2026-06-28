@@ -76,6 +76,23 @@ const buildRecommendations = (data, score) => {
       ];
 };
 
+const SkillGroup = ({ title, skills, tone = "neutral" }) => (
+  <div className="skills-col">
+    <h3>{title}</h3>
+    <div className="skills-list">
+      {(skills || []).length ? (
+        skills.map((skill, index) => (
+          <span key={`${title}-${skill}-${index}`} className={`skill-chip ${tone}`}>
+            {skill}
+          </span>
+        ))
+      ) : (
+        <span className="skill-empty">No skills found yet.</span>
+      )}
+    </div>
+  </div>
+);
+
 function Results() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -197,51 +214,13 @@ function Results() {
           </div>
 
           <div className="skills-panel">
-            <div className="skills-col">
-              <h3>Matched Skills</h3>
-              <div className="skills-list">
-                {(data?.matchedSkills || []).map((s, i) => (
-                  <span key={i} className="skill-chip matched">
-                    {s}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="skills-col">
-              <h3>Missing Skills</h3>
-              <ul className="missing-list">
-                {(data?.missingSkills || []).map((m, i) => (
-                  <li key={i} className="missing-item">
-                    {m}
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <SkillGroup title="Matched Skills" skills={data?.matchedSkills} tone="matched" />
+            <SkillGroup title="Missing Skills" skills={data?.missingSkills} tone="missing" />
           </div>
 
           <div className="skills-panel extracted-panel">
-            <div className="skills-col">
-              <h3>Resume Skills Extracted</h3>
-              <div className="skills-list">
-                {(data?.resumeSkills || []).map((s, i) => (
-                  <span key={i} className="skill-chip extracted">
-                    {s}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="skills-col">
-              <h3>JD Skills Extracted</h3>
-              <div className="skills-list">
-                {(data?.jdSkills || []).map((s, i) => (
-                  <span key={i} className="skill-chip extracted">
-                    {s}
-                  </span>
-                ))}
-              </div>
-            </div>
+            <SkillGroup title="Resume Skills Extracted" skills={data?.resumeSkills} tone="extracted" />
+            <SkillGroup title="JD Skills Extracted" skills={data?.jdSkills} tone="extracted" />
           </div>
 
           <section className="suggestions-card" aria-labelledby="suggestions-title">

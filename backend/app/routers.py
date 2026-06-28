@@ -2,7 +2,15 @@ from datetime import datetime
 import os
 import shutil
 from uuid import uuid4
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
+from backend.app.database import get_db
+from backend.app import models
+from backend.app.parser import extract_text
+from backend.app.matcher import analyze_skills, calculate_match_score
+from backend.app.ai_suggestions import generate_suggestions
 router = APIRouter()
 
 UPLOAD_DIR = "uploads"
@@ -13,6 +21,166 @@ workflow_sessions = {}
 
 class JDTextInput(BaseModel):
     text: str
+
+
+class SaveResumeInput(BaseModel):
+    session_id: str
+    target_jd: str = "current"
+
+
+def _validate_extension(filename: str, allowed_extensions: tuple[str, ...], label: str) -> None:
+    if not filename.lower().endswith(allowed_extensions):
+        allowed = ", ".join(ext.upper().replace(".", "") for ext in allowed_extensions)
+        raise HTTPException(400, f"Only {allowed} files are allowed for {label}")
+
+
+def _save_upload(file: UploadFile, session_id: str, prefix: str) -> str:
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    session_folder = os.path.join(UPLOAD_DIR, "workflow", session_id)
+    os.makedirs(session_folder, exist_ok=True)
+    file_path = os.path.join(session_folder, f"{prefix}{ext}")
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    return file_path
+
+
+def _build_workflow_results(session: dict) -> dict:
+    if not session.get("resume_text"):
+        raise HTTPException(400, "Resume has not been uploaded for this session")
+
+    if not session.get("jd_text"):
+        raise HTTPException(400, "Job description has not been uploaded for this session")
+
+    result = calculate_match_score(session["resume_text"], session["jd_text"])
+    suggestions = generate_suggestions(
+        matched_skills=result["matched_skills"],
+        missing_skills=result["missing_skills"],
+        score=result["final_score"],
+    )
+
+    return {
+        "success": True,
+        "session_id": session["session_id"],
+        "score": result["final_score"],
+        "semanticScore": result["semantic_score"],
+        "skillScore": result["skill_score"],
+        "experienceScore": result["experience_score"],
+        "educationScore": result["education_score"],
+        "matchedSkills": result["matched_skills"],
+        "missingSkills": result["missing_skills"],
+        "resumeSkills": result["resume_skills"],
+        "jdSkills": result["jd_skills"],
+        "recommendations": suggestions,
+        "ai_suggestions": suggestions,
+        "aiSuggestions": suggestions,
+    }
+
+
+@router.post("/workflow/upload/resume")
+async def workflow_upload_resume(file: UploadFile = File(...)):
+    _validate_extension(file.filename or "", (".pdf", ".docx"), "resumes")
+
+    session_id = str(uuid4())
+    file_path = _save_upload(file, session_id, "resume")
+
+    try:
+        extracted_text = extract_text(file_path)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    workflow_sessions[session_id] = {
+        "session_id": session_id,
+        "resume_filename": file.filename,
+        "resume_path": file_path,
+        "resume_text": extracted_text,
+        "created_at": datetime.utcnow().isoformat(),
+    }
+
+    return {
+        "success": True,
+        "message": "Resume uploaded successfully",
+        "session_id": session_id,
+        "extracted_text_preview": extracted_text[:300],
+    }
+
+
+@router.post("/workflow/upload/job-description/text")
+async def workflow_upload_jd_text(session_id: str, payload: JDTextInput):
+    session = workflow_sessions.get(session_id)
+    if not session:
+        raise HTTPException(404, "Workflow session not found")
+
+    jd_text = payload.text.strip()
+    if not jd_text:
+        raise HTTPException(400, "Job description text is required")
+
+    session["jd_text"] = jd_text
+    session["jd_filename"] = "pasted-job-description.txt"
+    session["results"] = _build_workflow_results(session)
+
+    return {
+        "success": True,
+        "message": "Job description processed successfully",
+        "session_id": session_id,
+    }
+
+
+@router.post("/workflow/upload/job-description")
+async def workflow_upload_jd_file(session_id: str, file: UploadFile = File(...)):
+    session = workflow_sessions.get(session_id)
+    if not session:
+        raise HTTPException(404, "Workflow session not found")
+
+    _validate_extension(file.filename or "", (".pdf", ".docx", ".txt"), "job descriptions")
+    file_path = _save_upload(file, session_id, "job_description")
+
+    try:
+        extracted_text = extract_text(file_path)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    session["jd_filename"] = file.filename
+    session["jd_path"] = file_path
+    session["jd_text"] = extracted_text
+    session["results"] = _build_workflow_results(session)
+
+    return {
+        "success": True,
+        "message": "Job description processed successfully",
+        "session_id": session_id,
+    }
+
+
+@router.get("/workflow/results")
+def workflow_results(session_id: str):
+    session = workflow_sessions.get(session_id)
+    if not session:
+        raise HTTPException(404, "Workflow session not found")
+
+    if "results" not in session:
+        session["results"] = _build_workflow_results(session)
+
+    return session["results"]
+
+
+@router.post("/workflow/save-resume")
+def workflow_save_resume(payload: SaveResumeInput):
+    session = workflow_sessions.get(payload.session_id)
+    if not session:
+        raise HTTPException(404, "Workflow session not found")
+
+    session["saved"] = True
+    session["save_target"] = payload.target_jd
+    session["saved_at"] = datetime.utcnow().isoformat()
+
+    return {
+        "success": True,
+        "message": "Resume saved successfully",
+        "session_id": payload.session_id,
+        "target_jd": payload.target_jd,
+    }
 
 
 @router.post("/upload/resume")
