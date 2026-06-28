@@ -1,4 +1,5 @@
 from datetime import datetime
+<<<<<<< HEAD
 import hashlib
 import hmac
 import os
@@ -16,6 +17,12 @@ from backend.app import models
 from backend.app.parser import extract_text
 from backend.app.matcher import analyze_skills, calculate_match_score
 from backend.app.ai_suggestions import generate_suggestions
+=======
+import os
+import shutil
+from app.ai_suggestions import generate_suggestions
+
+>>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
 router = APIRouter()
 
 UPLOAD_DIR = "uploads"
@@ -28,6 +35,7 @@ class JDTextInput(BaseModel):
     text: str
 
 
+<<<<<<< HEAD
 class SaveResumeInput(BaseModel):
     session_id: str
     user_id: int | None = None
@@ -359,6 +367,8 @@ def workflow_save_resume(payload: SaveResumeInput, db: Session = Depends(get_db)
     }
 
 
+=======
+>>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
 @router.post("/upload/resume")
 async def upload_resume(
     user_id: int,
@@ -512,8 +522,11 @@ def match_resume(
         "final_score": result["final_score"],
         "semantic_score": result["semantic_score"],
         "skill_score": result["skill_score"],
+<<<<<<< HEAD
         "experience_score": result["experience_score"],
         "education_score": result["education_score"],
+=======
+>>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
         "matched_skills": result["matched_skills"],
         "missing_skills": result["missing_skills"],
         "resume_skills": result["resume_skills"],
@@ -606,8 +619,11 @@ async def analyze_resume(
         "final_score": result["final_score"],
         "semantic_score": result["semantic_score"],
         "skill_score": result["skill_score"],
+<<<<<<< HEAD
         "experience_score": result["experience_score"],
         "education_score": result["education_score"],
+=======
+>>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
         "matched_skills": result["matched_skills"],
         "missing_skills": result["missing_skills"],
         "resume_skills": result["resume_skills"],
@@ -637,7 +653,10 @@ def get_version_history(
         ).first()
 
         result.append({
+<<<<<<< HEAD
             "resume_version_id": v.id,
+=======
+>>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
             "version_no": v.version_no,
             "file_name": v.file_name,
             "uploaded_at": v.uploaded_at,
@@ -694,6 +713,11 @@ def compare_versions(
         if s not in latest["missing_skills"]
     ]
 
+<<<<<<< HEAD
+=======
+    still_missing = latest["missing_skills"]
+
+>>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
     return {
         "previous_version": previous["version_no"],
         "previous_score": previous["score"],
@@ -702,16 +726,27 @@ def compare_versions(
         "improvement": improvement,
         "improved": improvement > 0,
         "newly_added_skills": new_skills,
+<<<<<<< HEAD
         "still_missing_skills": latest["missing_skills"],
         "all_versions": scores
     }
 
 
+=======
+        "still_missing_skills": still_missing,
+        "all_versions": scores
+    }
+
+>>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
 @router.post("/suggestions/{resume_version_id}")
 def get_ai_suggestions(
     resume_version_id: int,
     db: Session = Depends(get_db)
 ):
+<<<<<<< HEAD
+=======
+    # 1. Get match result
+>>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
     match_result = db.query(models.MatchResult).filter(
         models.MatchResult.resume_version_id == resume_version_id
     ).first()
@@ -719,6 +754,10 @@ def get_ai_suggestions(
     if not match_result:
         raise HTTPException(404, "No match result found. Run /analyze first.")
 
+<<<<<<< HEAD
+=======
+    # 2. Get JD title
+>>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
     resume = db.query(models.ResumeVersion).filter(
         models.ResumeVersion.id == resume_version_id
     ).first()
@@ -727,6 +766,10 @@ def get_ai_suggestions(
         models.JobDescription.id == resume.jd_id
     ).first()
 
+<<<<<<< HEAD
+=======
+    # 3. Generate suggestions
+>>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
     suggestions = generate_suggestions(
         matched_skills=match_result.matched_skills or [],
         missing_skills=match_result.missing_skills or [],
@@ -734,6 +777,10 @@ def get_ai_suggestions(
         jd_title=jd.title if jd else "the target role"
     )
 
+<<<<<<< HEAD
+=======
+    # 4. Save suggestions to DB
+>>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
     match_result.ai_suggestions = suggestions
     db.commit()
 
@@ -744,6 +791,7 @@ def get_ai_suggestions(
         "missing_skills": match_result.missing_skills,
         "ai_suggestions": suggestions
     }
+<<<<<<< HEAD
 
 
 @router.get("/job-descriptions/{user_id}")
@@ -819,3 +867,5 @@ def compare_two_resumes(payload: CompareInput, db: Session = Depends(get_db)):
         }
 
     return {"comparison": summary}
+=======
+>>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))

@@ -13,6 +13,71 @@ const formatSkillList = (skills) => {
   if (!skills?.length) return "";
   const visibleSkills = skills.slice(0, 4).join(", ");
   return skills.length > 4 ? `${visibleSkills}, and ${skills.length - 4} more` : visibleSkills;
+<<<<<<< HEAD
+=======
+};
+
+const normalizeRecommendations = (source) => {
+  if (!Array.isArray(source)) return [];
+
+  return source
+    .map((item) => {
+      if (typeof item === "string") {
+        return { title: item, detail: "Prioritize this update before your next application." };
+      }
+
+      return {
+        title: item.title || item.recommendation || item.summary || "Resume improvement",
+        detail: item.detail || item.description || item.reason || "Use the job description as the source of truth.",
+      };
+    })
+    .filter((item) => item.title);
+};
+
+const buildRecommendations = (data, score) => {
+  const provided = normalizeRecommendations(data?.recommendations || data?.ai_suggestions || data?.aiSuggestions);
+  if (provided.length) return provided.slice(0, 4);
+
+  const missingSkills = data?.missingSkills || [];
+  const recommendations = [];
+
+  if (missingSkills.length) {
+    recommendations.push({
+      title: "Add missing role keywords",
+      detail: `Work in relevant experience for ${formatSkillList(missingSkills)} where it reflects your background.`,
+    });
+  }
+
+  if ((data?.skillScore ?? 0) < 70) {
+    recommendations.push({
+      title: "Strengthen the skills section",
+      detail: "Group technical skills by category and mirror the job description terminology where accurate.",
+    });
+  }
+
+  if ((data?.semanticScore ?? 0) < 70) {
+    recommendations.push({
+      title: "Align bullets with job outcomes",
+      detail: "Rewrite key bullets to emphasize responsibilities, impact, and measurable results from the target role.",
+    });
+  }
+
+  if (score >= 80) {
+    recommendations.push({
+      title: "Polish for recruiter scanning",
+      detail: "Keep the strongest matched skills high on the page and tighten any bullets that do not support this role.",
+    });
+  }
+
+  return recommendations.length
+    ? recommendations.slice(0, 4)
+    : [
+        {
+          title: "Resume is well aligned",
+          detail: "Review formatting, dates, and role-specific examples before submitting.",
+        },
+      ];
+>>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
 };
 
 const normalizeRecommendations = (source) => {
@@ -103,6 +168,7 @@ function Results() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [resumeSaved, setResumeSaved] = useState(false);
+<<<<<<< HEAD
   const [saveTarget, setSaveTarget] = useState("current");
   const [saveMessage, setSaveMessage] = useState("");
   const [jobDescriptions, setJobDescriptions] = useState([]);
@@ -110,6 +176,8 @@ function Results() {
   const [saveMode, setSaveMode] = useState("existing");
   const [selectedJd, setSelectedJd] = useState(null);
   const [newJdTitle, setNewJdTitle] = useState("");
+=======
+>>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
   const [data, setData] = useState({
     score: 0,
     matchedSkills: [],
@@ -130,7 +198,11 @@ function Results() {
         }
 
         // Fetch results from workflow endpoint
+<<<<<<< HEAD
         const res = await api.get(`workflow/results?session_id=${sessionId}`);
+=======
+        const res = await api.get(`/workflow/results?session_id=${sessionId}`);
+>>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
         
         if (!mounted) return;
         
@@ -176,6 +248,7 @@ function Results() {
 
   const score = Math.min(100, Math.max(0, data?.score ?? 0));
   const recommendations = buildRecommendations(data, score);
+<<<<<<< HEAD
 
   const openSaveDialog = () => {
     setError("");
@@ -232,6 +305,8 @@ function Results() {
       setError(getErrorMessage(err, "Unable to save resume right now."));
     }
   };
+=======
+>>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
 
   return (
     <div className="results-page">
@@ -256,6 +331,8 @@ function Results() {
             <div>
               <span>Semantic Match</span>
               <strong>{loading ? "--" : `${data.semanticScore ?? 0}%`}</strong>
+<<<<<<< HEAD
+=======
             </div>
             <div>
               <span>Skill Match</span>
@@ -264,6 +341,25 @@ function Results() {
           </div>
 
           <div className="skills-panel">
+            <div className="skills-col">
+              <h3>Matched Skills</h3>
+              <div className="skills-list">
+                {(data?.matchedSkills || []).map((s, i) => (
+                  <span key={i} className="skill-chip matched">
+                    {s}
+                  </span>
+                ))}
+              </div>
+>>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
+            </div>
+            <div>
+              <span>Skill Match</span>
+              <strong>{loading ? "--" : `${data.skillScore ?? 0}%`}</strong>
+            </div>
+          </div>
+
+<<<<<<< HEAD
+          <div className="skills-panel">
             <SkillGroup title="Matched Skills" skills={data?.matchedSkills} tone="matched" />
             <SkillGroup title="Missing Skills" skills={data?.missingSkills} tone="missing" />
           </div>
@@ -271,6 +367,30 @@ function Results() {
           <div className="skills-panel extracted-panel">
             <SkillGroup title="Resume Skills Extracted" skills={data?.resumeSkills} tone="extracted" />
             <SkillGroup title="JD Skills Extracted" skills={data?.jdSkills} tone="extracted" />
+=======
+          <div className="skills-panel extracted-panel">
+            <div className="skills-col">
+              <h3>Resume Skills Extracted</h3>
+              <div className="skills-list">
+                {(data?.resumeSkills || []).map((s, i) => (
+                  <span key={i} className="skill-chip extracted">
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="skills-col">
+              <h3>JD Skills Extracted</h3>
+              <div className="skills-list">
+                {(data?.jdSkills || []).map((s, i) => (
+                  <span key={i} className="skill-chip extracted">
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+>>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
           </div>
 
           <section className="suggestions-card" aria-labelledby="suggestions-title">
@@ -392,6 +512,25 @@ function Results() {
           <button
             className="upload-submit-btn"
             type="button"
+<<<<<<< HEAD
+=======
+            onClick={() => setResumeSaved(true)}
+          >
+            {resumeSaved ? "Resume Saved" : "Save Resume"}
+          </button>
+          <button
+            className="results-secondary-btn"
+            type="button"
+            onClick={() => {
+              window.location.href = "/history";
+            }}
+          >
+            Resume History
+          </button>
+          <button
+            className="upload-submit-btn"
+            type="button"
+>>>>>>> eaa6d34 ( UI changes and Folder correction and Routing correction (#14))
             onClick={() => {
               localStorage.removeItem("sessionId");
               window.location.href = "/upload";
