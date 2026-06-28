@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import "./History.css";
 
@@ -12,6 +13,11 @@ const formatDate = (value) => {
 };
 
 function History() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const authUser = localStorage.getItem("authUser");
+    if (!authUser) navigate("/");
+  }, [navigate]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [history, setHistory] = useState([]);

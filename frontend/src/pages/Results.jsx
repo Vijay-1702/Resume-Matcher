@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import "./Results.css";
 
@@ -94,6 +95,11 @@ const SkillGroup = ({ title, skills, tone = "neutral" }) => (
 );
 
 function Results() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const authUser = localStorage.getItem("authUser");
+    if (!authUser) navigate("/");
+  }, [navigate]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [resumeSaved, setResumeSaved] = useState(false);

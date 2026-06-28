@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import "./Upload.css";
@@ -13,6 +13,10 @@ const getErrorMessage = (err, fallback) =>
 
 function Upload() {
   const navigate = useNavigate();
+  useEffect(() => {
+    const authUser = localStorage.getItem("authUser");
+    if (!authUser) navigate("/");
+  }, [navigate]);
   const [resume, setResume] = useState(null);
   const [jd, setJd] = useState(null);
   const [jdInputMode, setJdInputMode] = useState("text");

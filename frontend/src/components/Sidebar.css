@@ -1,0 +1,122 @@
+.sidebar-container {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  z-index: 1000;
+}
+
+.app-sidebar {
+  width: 220px;
+  background: #0f1724;
+  color: #ffffff;
+  height: 100vh;
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 12px;
+  box-sizing: border-box;
+  transform: translateX(-100%);
+  transition: transform 200ms ease-in-out;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #1f2937;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.user-name {
+  font-weight: 600;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: auto;
+}
+
+.nav-link {
+  color: #cbd5e1;
+  text-decoration: none;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
+.nav-link.active {
+  background: #1f2937;
+  color: #fff;
+}
+
+.sidebar-footer {
+  margin-top: 24px;
+}
+
+.logout-btn {
+  background: #ef4444;
+  border: none;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* Push main content to the right when sidebar present */
+.app-main {
+  margin-left: 0;
+  padding: 20px;
+  transition: margin-left 200ms ease-in-out;
+}
+
+/* show sidebar when hovering the trigger or sidebar */
+.sidebar-container:hover .app-sidebar {
+  transform: translateX(0);
+}
+
+/* shift main content when sidebar visible */
+.sidebar-container:hover ~ .app-main {
+  margin-left: 240px;
+}
+
+/* trigger */
+.sidebar-trigger {
+  width: 40px;
+  height: 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.sidebar-trigger .bar {
+  display: block;
+  height: 3px;
+  background: #1f2937;
+  border-radius: 2px;
+  width: 22px;
+}
+
+/* Small responsive tweak */
+@media (max-width: 720px) {
+  .app-sidebar { display: none; }
+  .app-main { margin-left: 0; }
+}

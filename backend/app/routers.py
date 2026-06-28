@@ -1,9 +1,14 @@
 from datetime import datetime
+import hashlib
+import hmac
 import os
+import re
+import secrets
 import shutil
 from uuid import uuid4
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.app.database import get_db
@@ -26,6 +31,59 @@ class JDTextInput(BaseModel):
 class SaveResumeInput(BaseModel):
     session_id: str
     target_jd: str = "current"
+
+
+class AuthInput(BaseModel):
+    username: str
+    password: str
+
+
+PASSWORD_PATTERN = re.compile(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,}$")
+
+
+def _normalize_username(username: str) -> str:
+    normalized = username.strip().lower()
+    if not normalized:
+        raise HTTPException(400, "Username is required")
+    return normalized
+
+
+def _validate_password(password: str) -> None:
+    if not PASSWORD_PATTERN.match(password):
+        raise HTTPException(
+            400,
+            "Password must be at least 8 characters and include one uppercase letter, one lowercase letter, and one special character.",
+        )
+
+
+def _hash_password(password: str) -> str:
+    salt = secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), 100000)
+    return f"pbkdf2_sha256${salt}${digest.hex()}"
+
+
+def _verify_password(password: str, stored_password: str) -> bool:
+    try:
+        algorithm, salt, expected_digest = stored_password.split("$", 2)
+    except ValueError:
+        return False
+
+    if algorithm != "pbkdf2_sha256":
+        return False
+
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), 100000)
+    return hmac.compare_digest(digest.hex(), expected_digest)
+
+
+def _auth_response(user: models.User, message: str) -> dict:
+    return {
+        "success": True,
+        "message": message,
+        "user": {
+            "id": user.id,
+            "username": user.name,
+        },
+    }
 
 
 def _validate_extension(filename: str, allowed_extensions: tuple[str, ...], label: str) -> None:
@@ -76,6 +134,42 @@ def _build_workflow_results(session: dict) -> dict:
         "ai_suggestions": suggestions,
         "aiSuggestions": suggestions,
     }
+
+
+@router.post("/auth/signup")
+def signup(payload: AuthInput, db: Session = Depends(get_db)):
+    username = _normalize_username(payload.username)
+    _validate_password(payload.password)
+
+    existing_user = db.query(models.User).filter(models.User.name == username).first()
+    if existing_user:
+        raise HTTPException(409, "Username is already taken")
+
+    user = models.User(
+        name=username,
+        email=f"{username}@local.resume-matcher",
+        password=_hash_password(payload.password),
+    )
+    db.add(user)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "Username is already taken")
+    db.refresh(user)
+
+    return _auth_response(user, "Sign up successful")
+
+
+@router.post("/auth/signin")
+def signin(payload: AuthInput, db: Session = Depends(get_db)):
+    username = _normalize_username(payload.username)
+    user = db.query(models.User).filter(models.User.name == username).first()
+
+    if not user or not _verify_password(payload.password, user.password):
+        raise HTTPException(401, "Invalid username or password")
+
+    return _auth_response(user, "Sign in successful")
 
 
 @router.post("/workflow/upload/resume")
