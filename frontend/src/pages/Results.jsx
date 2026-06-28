@@ -80,6 +80,8 @@ function Results() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [resumeSaved, setResumeSaved] = useState(false);
+  const [saveTarget, setSaveTarget] = useState("current");
+  const [saveMessage, setSaveMessage] = useState("");
   const [data, setData] = useState({
     score: 0,
     matchedSkills: [],
@@ -100,7 +102,7 @@ function Results() {
         }
 
         // Fetch results from workflow endpoint
-        const res = await api.get(`/workflow/results?session_id=${sessionId}`);
+        const res = await api.get(`workflow/results?session_id=${sessionId}`);
         
         if (!mounted) return;
         
@@ -134,6 +136,35 @@ function Results() {
 
   const score = Math.min(100, Math.max(0, data?.score ?? 0));
   const recommendations = buildRecommendations(data, score);
+
+  const handleSaveResume = async () => {
+    setError("");
+    setSaveMessage("");
+
+    const sessionId = localStorage.getItem("sessionId");
+    if (!sessionId) {
+      setError("No active session. Please upload files first.");
+      return;
+    }
+
+    try {
+      const res = await api.post("workflow/save-resume", {
+        session_id: sessionId,
+        target_jd: saveTarget,
+      });
+
+      if (res?.data?.success) {
+        setResumeSaved(true);
+        setSaveMessage(
+          `Resume saved for ${saveTarget === "previous" ? "the previous" : "the current"} job description.`
+        );
+      } else {
+        setError(res?.data?.message || "Unable to save resume right now.");
+      }
+    } catch (err) {
+      setError(getErrorMessage(err, "Unable to save resume right now."));
+    }
+  };
 
   return (
     <div className="results-page">
@@ -244,11 +275,29 @@ function Results() {
         </section>
 
         <div className="results-actions">
-          <button
-            className="upload-submit-btn"
-            type="button"
-            onClick={() => setResumeSaved(true)}
-          >
+          <div className="save-choice">
+            <span>Save for:</span>
+            <label>
+              <input
+                type="radio"
+                value="current"
+                checked={saveTarget === "current"}
+                onChange={() => setSaveTarget("current")}
+              />
+              Current JD
+            </label>
+            <label>
+              <input
+                type="radio"
+                value="previous"
+                checked={saveTarget === "previous"}
+                onChange={() => setSaveTarget("previous")}
+              />
+              Previous JD
+            </label>
+          </div>
+
+          <button className="upload-submit-btn" type="button" onClick={handleSaveResume}>
             {resumeSaved ? "Resume Saved" : "Save Resume"}
           </button>
           <button
@@ -271,6 +320,8 @@ function Results() {
             Upload New
           </button>
         </div>
+
+        {saveMessage && <div className="message success-message">{saveMessage}</div>}
       </main>
     </div>
   );
