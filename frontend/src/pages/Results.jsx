@@ -165,6 +165,8 @@ function Results() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [resumeSaved, setResumeSaved] = useState(false);
+  const [saveTarget, setSaveTarget] = useState("current");
+  const [saveMessage, setSaveMessage] = useState("");
   const [data, setData] = useState({
     score: 0,
     matchedSkills: [],
@@ -185,11 +187,23 @@ function Results() {
         }
 
         // Fetch results from workflow endpoint
-        const res = await api.get(`/workflow/results?session_id=${sessionId}`);
+        const res = await api.get(`workflow/results?session_id=${sessionId}`);
         
         if (!mounted) return;
         
         if (res?.data?.success) {
+          let suggestions = res.data.recommendations || res.data.ai_suggestions || res.data.aiSuggestions || [];
+          const resumeVersionId = localStorage.getItem("resumeVersionId") || res.data.resume_version_id;
+
+          if (resumeVersionId && (!Array.isArray(suggestions) || suggestions.length === 0)) {
+            try {
+              const suggestionRes = await api.post(`suggestions/${resumeVersionId}`);
+              suggestions = suggestionRes.data.ai_suggestions || [];
+            } catch (suggestionErr) {
+              console.warn("Unable to fetch AI suggestions", suggestionErr);
+            }
+          }
+
           setData({
             score: res.data.score || 0,
             matchedSkills: res.data.matchedSkills || [],
@@ -198,9 +212,9 @@ function Results() {
             skillScore: res.data.skillScore,
             resumeSkills: res.data.resumeSkills,
             jdSkills: res.data.jdSkills,
-            recommendations: res.data.recommendations,
-            ai_suggestions: res.data.ai_suggestions,
-            aiSuggestions: res.data.aiSuggestions,
+            recommendations: suggestions,
+            ai_suggestions: suggestions,
+            aiSuggestions: suggestions,
           });
         } else {
           setError(res?.data?.message || "Failed to fetch results");
@@ -231,6 +245,35 @@ function Results() {
 
   const score = Math.min(100, Math.max(0, data?.score ?? 0));
   const recommendations = buildRecommendations(data, score);
+
+  const handleSaveResume = async () => {
+    setError("");
+    setSaveMessage("");
+
+    const sessionId = localStorage.getItem("sessionId");
+    if (!sessionId) {
+      setError("No active session. Please upload files first.");
+      return;
+    }
+
+    try {
+      const res = await api.post("workflow/save-resume", {
+        session_id: sessionId,
+        target_jd: saveTarget,
+      });
+
+      if (res?.data?.success) {
+        setResumeSaved(true);
+        setSaveMessage(
+          `Resume saved for ${saveTarget === "previous" ? "the previous" : "the current"} job description.`
+        );
+      } else {
+        setError(res?.data?.message || "Unable to save resume right now.");
+      }
+    } catch (err) {
+      setError(getErrorMessage(err, "Unable to save resume right now."));
+    }
+  };
 
   return (
     <div className="results-page">
