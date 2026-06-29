@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import "./History.css";
 
@@ -10,8 +11,21 @@ const formatDate = (value) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 };
+const defaultUserId = 1;
+const defaultJdId = 1;
+
+const formatDate = (value) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+};
 
 function History() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const authUser = localStorage.getItem("authUser");
+    if (!authUser) navigate("/");
+  }, [navigate]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [history, setHistory] = useState([]);
@@ -19,7 +33,7 @@ function History() {
 
   useEffect(() => {
     let mounted = true;
-    const fetchHistory = async () => {
+    const fetchJobData = async () => {
       try {
         const userId = Number(localStorage.getItem("userId") || defaultUserId);
         const jdId = Number(localStorage.getItem("jdId") || defaultJdId);
@@ -45,14 +59,46 @@ function History() {
       }
     };
 
-    fetchHistory();
+    fetchJobData();
     return () => (mounted = false);
   }, []);
+
+  // when selectedJd changes, fetch versions and comparison
+  useEffect(() => {
+    if (!selectedJd) return;
+    let mounted = true;
+    const fetchVersions = async () => {
+      setLoading(true);
+      try {
+        const userId = Number(localStorage.getItem("userId") || defaultUserId);
+        const historyRes = await api.get(`version-history/${userId}/${selectedJd}`);
+        const compareRes = await api.get(`version-compare/${userId}/${selectedJd}`).catch((err) => {
+          if (err.response?.status === 400) return null;
+          throw err;
+        });
+
+        if (!mounted) return;
+        const versions = Array.isArray(historyRes?.data?.versions) ? historyRes.data.versions : [];
+        setHistory(versions);
+        setComparison(compareRes?.data || null);
+        setSelectedForCompare([]);
+      } catch (err) {
+        console.warn("Failed to fetch resume history.", err);
+        setError("Unable to load version history right now.");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    fetchVersions();
+    return () => (mounted = false);
+  }, [selectedJd]);
 
   return (
     <div className="history-page">
       <main className="history-main">
         <h1>Resume Versions</h1>
+        <p className="sub">Compare different resume versions for the same job description side by side.</p>
         <p className="sub">Compare different resume versions for the same job description side by side.</p>
 
         <section className="history-block">
@@ -122,6 +168,24 @@ function History() {
             )}
           </div>
         </section>
+        {comparison && (
+          <section style={{marginTop:16}} className="comparison-output">
+            <h2>Comparison Result</h2>
+            {typeof comparison === "string" ? (
+              <pre style={{whiteSpace:'pre-wrap'}}>{comparison}</pre>
+            ) : (
+              <div>
+                <p>Previous score: {comparison.previous_score ?? "—"}</p>
+                <p>Latest score: {comparison.latest_score ?? "—"}</p>
+                <p>Improved: {String(comparison.improved)}</p>
+                <h4>Newly added skills</h4>
+                <ul>{(comparison.newly_added_skills || []).map((s) => <li key={s}>{s}</li>)}</ul>
+                <h4>Still missing skills</h4>
+                <ul>{(comparison.still_missing_skills || []).map((s) => <li key={s}>{s}</li>)}</ul>
+              </div>
+            )}
+          </section>
+        )}
       </main>
     </div>
   );

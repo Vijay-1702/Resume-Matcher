@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import "./Results.css";
 
@@ -76,7 +77,91 @@ const buildRecommendations = (data, score) => {
       ];
 };
 
+const normalizeRecommendations = (source) => {
+  if (!Array.isArray(source)) return [];
+
+  return source
+    .map((item) => {
+      if (typeof item === "string") {
+        return { title: item, detail: "Prioritize this update before your next application." };
+      }
+
+      return {
+        title: item.title || item.recommendation || item.summary || "Resume improvement",
+        detail: item.detail || item.description || item.reason || "Use the job description as the source of truth.",
+      };
+    })
+    .filter((item) => item.title);
+};
+
+const buildRecommendations = (data, score) => {
+  const provided = normalizeRecommendations(data?.recommendations || data?.ai_suggestions || data?.aiSuggestions);
+  if (provided.length) return provided.slice(0, 4);
+
+  const missingSkills = data?.missingSkills || [];
+  const recommendations = [];
+
+  if (missingSkills.length) {
+    recommendations.push({
+      title: "Add missing role keywords",
+      detail: `Work in relevant experience for ${formatSkillList(missingSkills)} where it reflects your background.`,
+    });
+  }
+
+  if ((data?.skillScore ?? 0) < 70) {
+    recommendations.push({
+      title: "Strengthen the skills section",
+      detail: "Group technical skills by category and mirror the job description terminology where accurate.",
+    });
+  }
+
+  if ((data?.semanticScore ?? 0) < 70) {
+    recommendations.push({
+      title: "Align bullets with job outcomes",
+      detail: "Rewrite key bullets to emphasize responsibilities, impact, and measurable results from the target role.",
+    });
+  }
+
+  if (score >= 80) {
+    recommendations.push({
+      title: "Polish for recruiter scanning",
+      detail: "Keep the strongest matched skills high on the page and tighten any bullets that do not support this role.",
+    });
+  }
+
+  return recommendations.length
+    ? recommendations.slice(0, 4)
+    : [
+        {
+          title: "Resume is well aligned",
+          detail: "Review formatting, dates, and role-specific examples before submitting.",
+        },
+      ];
+};
+
+const SkillGroup = ({ title, skills, tone = "neutral" }) => (
+  <div className="skills-col">
+    <h3>{title}</h3>
+    <div className="skills-list">
+      {(skills || []).length ? (
+        skills.map((skill, index) => (
+          <span key={`${title}-${skill}-${index}`} className={`skill-chip ${tone}`}>
+            {skill}
+          </span>
+        ))
+      ) : (
+        <span className="skill-empty">No skills found yet.</span>
+      )}
+    </div>
+  </div>
+);
+
 function Results() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const authUser = localStorage.getItem("authUser");
+    if (!authUser) navigate("/");
+  }, [navigate]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [resumeSaved, setResumeSaved] = useState(false);
@@ -143,6 +228,18 @@ function Results() {
     };
 
     fetchResults();
+    // fetch user's job descriptions for save options
+    (async () => {
+      try {
+        const rawUser = localStorage.getItem("authUser");
+        if (!rawUser) return;
+        const user = JSON.parse(rawUser);
+        const jdRes = await api.get(`job-descriptions/${user.id}`);
+        setJobDescriptions(jdRes.data || []);
+      } catch (e) {
+        // ignore
+      }
+    })();
     return () => (mounted = false);
   }, []);
 
@@ -219,16 +316,9 @@ function Results() {
                 ))}
               </div>
             </div>
-
-            <div className="skills-col">
-              <h3>Missing Skills</h3>
-              <ul className="missing-list">
-                {(data?.missingSkills || []).map((m, i) => (
-                  <li key={i} className="missing-item">
-                    {m}
-                  </li>
-                ))}
-              </ul>
+            <div>
+              <span>Skill Match</span>
+              <strong>{loading ? "--" : `${data.skillScore ?? 0}%`}</strong>
             </div>
           </div>
 
@@ -287,29 +377,96 @@ function Results() {
         </section>
 
         <div className="results-actions">
-          <div className="save-choice">
-            <span>Save for:</span>
-            <label>
-              <input
-                type="radio"
-                value="current"
-                checked={saveTarget === "current"}
-                onChange={() => setSaveTarget("current")}
-              />
-              Current JD
-            </label>
-            <label>
-              <input
-                type="radio"
-                value="previous"
-                checked={saveTarget === "previous"}
-                onChange={() => setSaveTarget("previous")}
-              />
-              Previous JD
-            </label>
+          <div style={{display:'flex', alignItems:'center', gap:12}}>
+            <button className="upload-submit-btn" type="button" onClick={openSaveDialog}>
+              {resumeSaved ? "Resume Saved" : "Save Resume"}
+            </button>
+            <button className="results-secondary-btn" type="button" onClick={() => { window.location.href = "/history"; }}>
+              Resume History
+            </button>
           </div>
 
-          <button className="upload-submit-btn" type="button" onClick={handleSaveResume}>
+          {showSavePanel && (
+            <div className="save-modal-backdrop" role="presentation" onClick={closeSaveDialog}>
+              <div
+                className="save-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="save-modal-title"
+                aria-describedby="save-modal-description"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="save-modal-header">
+                  <div>
+                    <p className="save-modal-kicker">Save resume</p>
+                    <h3 id="save-modal-title">Choose where to save this version</h3>
+                  </div>
+                  <button className="save-modal-close" type="button" onClick={closeSaveDialog} aria-label="Close save dialog">
+                    ×
+                  </button>
+                </div>
+
+                <p id="save-modal-description" className="save-modal-description">
+                  Save to an existing job description or create a new one before storing this resume version.
+                </p>
+
+                <div className="save-mode-switch">
+                  <label className={saveMode === 'existing' ? 'active' : ''}>
+                    <input type="radio" name="save-mode" checked={saveMode === 'existing'} onChange={() => setSaveMode('existing')} />
+                    Existing JD
+                  </label>
+                  <label className={saveMode === 'new' ? 'active' : ''}>
+                    <input type="radio" name="save-mode" checked={saveMode === 'new'} onChange={() => setSaveMode('new')} />
+                    Create new JD
+                  </label>
+                </div>
+
+                {saveMode === 'existing' ? (
+                  <div className="save-modal-field">
+                    <label htmlFor="save-existing-jd">Select a job description</label>
+                    <select
+                      id="save-existing-jd"
+                      value={selectedJd || ''}
+                      onChange={(e) => setSelectedJd(Number(e.target.value))}
+                    >
+                      <option value="">Select a job description...</option>
+                      {jobDescriptions.map((jd) => (
+                        <option key={jd.id} value={jd.id}>
+                          {jd.title || `(JD ${jd.id})`}
+                        </option>
+                      ))}
+                    </select>
+                    {!jobDescriptions.length && <p className="save-modal-help">No saved JDs found. Switch to create a new one.</p>}
+                  </div>
+                ) : (
+                  <div className="save-modal-field">
+                    <label htmlFor="save-new-jd">New JD title</label>
+                    <input
+                      id="save-new-jd"
+                      placeholder="e.g. Frontend Engineer"
+                      value={newJdTitle}
+                      onChange={(e) => setNewJdTitle(e.target.value)}
+                    />
+                    <p className="save-modal-help">The resume will be saved under a new job description with the current JD text.</p>
+                  </div>
+                )}
+
+                <div className="save-modal-actions">
+                  <button className="upload-submit-btn" type="button" onClick={handleSaveResume}>
+                    Confirm Save
+                  </button>
+                  <button className="results-secondary-btn" type="button" onClick={closeSaveDialog}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          <button
+            className="upload-submit-btn"
+            type="button"
+            onClick={() => setResumeSaved(true)}
+          >
             {resumeSaved ? "Resume Saved" : "Save Resume"}
           </button>
           <button

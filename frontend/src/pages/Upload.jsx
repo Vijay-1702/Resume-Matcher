@@ -205,7 +205,7 @@ function Upload() {
                 <input
                   id="jd-upload"
                   type="file"
-                  accept=".pdf,.doc,.docx,.txt"
+                  accept=".pdf,.docx,.txt"
                   onChange={(e) => setJd(e.target.files[0])}
                 />
                 <div className="file-meta">
