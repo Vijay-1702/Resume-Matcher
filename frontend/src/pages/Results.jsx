@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import "./Results.css";
 
@@ -13,68 +14,6 @@ const formatSkillList = (skills) => {
   if (!skills?.length) return "";
   const visibleSkills = skills.slice(0, 4).join(", ");
   return skills.length > 4 ? `${visibleSkills}, and ${skills.length - 4} more` : visibleSkills;
-};
-
-const normalizeRecommendations = (source) => {
-  if (!Array.isArray(source)) return [];
-
-  return source
-    .map((item) => {
-      if (typeof item === "string") {
-        return { title: item, detail: "Prioritize this update before your next application." };
-      }
-
-      return {
-        title: item.title || item.recommendation || item.summary || "Resume improvement",
-        detail: item.detail || item.description || item.reason || "Use the job description as the source of truth.",
-      };
-    })
-    .filter((item) => item.title);
-};
-
-const buildRecommendations = (data, score) => {
-  const provided = normalizeRecommendations(data?.recommendations || data?.ai_suggestions || data?.aiSuggestions);
-  if (provided.length) return provided.slice(0, 4);
-
-  const missingSkills = data?.missingSkills || [];
-  const recommendations = [];
-
-  if (missingSkills.length) {
-    recommendations.push({
-      title: "Add missing role keywords",
-      detail: `Work in relevant experience for ${formatSkillList(missingSkills)} where it reflects your background.`,
-    });
-  }
-
-  if ((data?.skillScore ?? 0) < 70) {
-    recommendations.push({
-      title: "Strengthen the skills section",
-      detail: "Group technical skills by category and mirror the job description terminology where accurate.",
-    });
-  }
-
-  if ((data?.semanticScore ?? 0) < 70) {
-    recommendations.push({
-      title: "Align bullets with job outcomes",
-      detail: "Rewrite key bullets to emphasize responsibilities, impact, and measurable results from the target role.",
-    });
-  }
-
-  if (score >= 80) {
-    recommendations.push({
-      title: "Polish for recruiter scanning",
-      detail: "Keep the strongest matched skills high on the page and tighten any bullets that do not support this role.",
-    });
-  }
-
-  return recommendations.length
-    ? recommendations.slice(0, 4)
-    : [
-        {
-          title: "Resume is well aligned",
-          detail: "Review formatting, dates, and role-specific examples before submitting.",
-        },
-      ];
 };
 
 const normalizeRecommendations = (source) => {
@@ -162,9 +101,21 @@ function Results() {
     const authUser = localStorage.getItem("authUser");
     if (!authUser) navigate("/");
   }, [navigate]);
+  const navigate = useNavigate();
+  useEffect(() => {
+    const authUser = localStorage.getItem("authUser");
+    if (!authUser) navigate("/");
+  }, [navigate]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [resumeSaved, setResumeSaved] = useState(false);
+  const [saveTarget, setSaveTarget] = useState("current");
+  const [saveMessage, setSaveMessage] = useState("");
+  const [jobDescriptions, setJobDescriptions] = useState([]);
+  const [showSavePanel, setShowSavePanel] = useState(false);
+  const [saveMode, setSaveMode] = useState("existing");
+  const [selectedJd, setSelectedJd] = useState(null);
+  const [newJdTitle, setNewJdTitle] = useState("");
   const [data, setData] = useState({
     score: 0,
     matchedSkills: [],
@@ -226,11 +177,79 @@ function Results() {
         // ignore
       }
     })();
+    // fetch user's job descriptions for save options
+    (async () => {
+      try {
+        const rawUser = localStorage.getItem("authUser");
+        if (!rawUser) return;
+        const user = JSON.parse(rawUser);
+        const jdRes = await api.get(`job-descriptions/${user.id}`);
+        setJobDescriptions(jdRes.data || []);
+      } catch (e) {
+        // ignore
+      }
+    })();
     return () => (mounted = false);
   }, []);
 
   const score = Math.min(100, Math.max(0, data?.score ?? 0));
   const recommendations = buildRecommendations(data, score);
+
+  const openSaveDialog = () => {
+    setError("");
+    setSaveMessage("");
+    if (!selectedJd && jobDescriptions.length) {
+      setSelectedJd(jobDescriptions[0].id);
+    }
+    setSaveMode("existing");
+    setShowSavePanel(true);
+  };
+
+  const closeSaveDialog = () => {
+    setShowSavePanel(false);
+  };
+
+  const handleSaveResume = async () => {
+    setError("");
+    setSaveMessage("");
+
+    const sessionId = localStorage.getItem("sessionId");
+    if (!sessionId) {
+      setError("No active session. Please upload files first.");
+      return;
+    }
+    try {
+      const rawUser = localStorage.getItem("authUser");
+      if (!rawUser) {
+        setError("Not signed in.");
+        return;
+      }
+      const user = JSON.parse(rawUser);
+
+      const payload = { session_id: sessionId, user_id: user.id };
+      if (saveMode === "existing") {
+        if (!selectedJd) { setError("Select a job description"); return; }
+        payload.target_type = "existing";
+        payload.jd_id = selectedJd;
+      } else {
+        if (!newJdTitle) { setError("Enter a title for the new JD"); return; }
+        payload.target_type = "new";
+        payload.new_jd_title = newJdTitle;
+      }
+
+      const res = await api.post("workflow/save-resume", payload);
+      if (res?.data?.success) {
+        setResumeSaved(true);
+        setSaveMessage(`Resume saved (v${res.data.version_no}) under JD ${res.data.jd_id}`);
+        setShowSavePanel(false);
+      } else {
+        setError(res?.data?.message || "Unable to save resume right now.");
+      }
+    } catch (err) {
+      console.error(err);
+      setError(getErrorMessage(err, "Unable to save resume right now."));
+    }
+  };
 
   return (
     <div className="results-page">
@@ -263,44 +282,13 @@ function Results() {
           </div>
 
           <div className="skills-panel">
-            <div className="skills-col">
-              <h3>Matched Skills</h3>
-              <div className="skills-list">
-                {(data?.matchedSkills || []).map((s, i) => (
-                  <span key={i} className="skill-chip matched">
-                    {s}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div>
-              <span>Skill Match</span>
-              <strong>{loading ? "--" : `${data.skillScore ?? 0}%`}</strong>
-            </div>
+            <SkillGroup title="Matched Skills" skills={data?.matchedSkills} tone="matched" />
+            <SkillGroup title="Missing Skills" skills={data?.missingSkills} tone="missing" />
           </div>
 
           <div className="skills-panel extracted-panel">
-            <div className="skills-col">
-              <h3>Resume Skills Extracted</h3>
-              <div className="skills-list">
-                {(data?.resumeSkills || []).map((s, i) => (
-                  <span key={i} className="skill-chip extracted">
-                    {s}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="skills-col">
-              <h3>JD Skills Extracted</h3>
-              <div className="skills-list">
-                {(data?.jdSkills || []).map((s, i) => (
-                  <span key={i} className="skill-chip extracted">
-                    {s}
-                  </span>
-                ))}
-              </div>
-            </div>
+            <SkillGroup title="Resume Skills Extracted" skills={data?.resumeSkills} tone="extracted" />
+            <SkillGroup title="JD Skills Extracted" skills={data?.jdSkills} tone="extracted" />
           </div>
 
           <section className="suggestions-card" aria-labelledby="suggestions-title">
@@ -334,6 +322,49 @@ function Results() {
         </section>
 
         <div className="results-actions">
+          <div style={{display:'flex', alignItems:'center', gap:12}}>
+            <button className="upload-submit-btn" type="button" onClick={openSaveDialog}>
+              {resumeSaved ? "Resume Saved" : "Save Resume"}
+            </button>
+            <button className="results-secondary-btn" type="button" onClick={() => { window.location.href = "/history"; }}>
+              Resume History
+            </button>
+          </div>
+
+          {showSavePanel && (
+            <div className="save-modal-backdrop" role="presentation" onClick={closeSaveDialog}>
+              <div
+                className="save-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="save-modal-title"
+                aria-describedby="save-modal-description"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="save-modal-header">
+                  <div>
+                    <p className="save-modal-kicker">Save resume</p>
+                    <h3 id="save-modal-title">Choose where to save this version</h3>
+                  </div>
+                  <button className="save-modal-close" type="button" onClick={closeSaveDialog} aria-label="Close save dialog">
+                    ×
+                  </button>
+                </div>
+
+                <p id="save-modal-description" className="save-modal-description">
+                  Save to an existing job description or create a new one before storing this resume version.
+                </p>
+
+                <div className="save-mode-switch">
+                  <label className={saveMode === 'existing' ? 'active' : ''}>
+                    <input type="radio" name="save-mode" checked={saveMode === 'existing'} onChange={() => setSaveMode('existing')} />
+                    Existing JD
+                  </label>
+                  <label className={saveMode === 'new' ? 'active' : ''}>
+                    <input type="radio" name="save-mode" checked={saveMode === 'new'} onChange={() => setSaveMode('new')} />
+                    Create new JD
+                  </label>
+                </div>
           <div style={{display:'flex', alignItems:'center', gap:12}}>
             <button className="upload-submit-btn" type="button" onClick={openSaveDialog}>
               {resumeSaved ? "Resume Saved" : "Save Resume"}
@@ -419,22 +450,6 @@ function Results() {
               </div>
             </div>
           )}
-          <button
-            className="upload-submit-btn"
-            type="button"
-            onClick={() => setResumeSaved(true)}
-          >
-            {resumeSaved ? "Resume Saved" : "Save Resume"}
-          </button>
-          <button
-            className="results-secondary-btn"
-            type="button"
-            onClick={() => {
-              window.location.href = "/history";
-            }}
-          >
-            Resume History
-          </button>
           <button
             className="upload-submit-btn"
             type="button"
