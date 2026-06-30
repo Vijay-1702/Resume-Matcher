@@ -236,30 +236,6 @@
   margin-top: 6px;
 }
 
-.save-choice {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: 999px;
-  background: rgba(250, 248, 255, 0.95);
-  border: 1px solid rgba(170, 59, 255, 0.12);
-}
-
-.save-choice span {
-  font-weight: 700;
-  color: var(--text-h);
-}
-
-.save-choice label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text);
-  font-weight: 600;
-}
-
 .results-secondary-btn {
   border: 1px solid var(--accent-border);
   border-radius: 999px;

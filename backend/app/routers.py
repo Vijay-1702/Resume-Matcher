@@ -512,8 +512,6 @@ def match_resume(
         "final_score": result["final_score"],
         "semantic_score": result["semantic_score"],
         "skill_score": result["skill_score"],
-        "experience_score": result["experience_score"],
-        "education_score": result["education_score"],
         "matched_skills": result["matched_skills"],
         "missing_skills": result["missing_skills"],
         "resume_skills": result["resume_skills"],
@@ -606,8 +604,6 @@ async def analyze_resume(
         "final_score": result["final_score"],
         "semantic_score": result["semantic_score"],
         "skill_score": result["skill_score"],
-        "experience_score": result["experience_score"],
-        "education_score": result["education_score"],
         "matched_skills": result["matched_skills"],
         "missing_skills": result["missing_skills"],
         "resume_skills": result["resume_skills"],
@@ -694,6 +690,8 @@ def compare_versions(
         if s not in latest["missing_skills"]
     ]
 
+    still_missing = latest["missing_skills"]
+
     return {
         "previous_version": previous["version_no"],
         "previous_score": previous["score"],
@@ -702,16 +700,16 @@ def compare_versions(
         "improvement": improvement,
         "improved": improvement > 0,
         "newly_added_skills": new_skills,
-        "still_missing_skills": latest["missing_skills"],
+        "still_missing_skills": still_missing,
         "all_versions": scores
     }
-
 
 @router.post("/suggestions/{resume_version_id}")
 def get_ai_suggestions(
     resume_version_id: int,
     db: Session = Depends(get_db)
 ):
+    # 1. Get match result
     match_result = db.query(models.MatchResult).filter(
         models.MatchResult.resume_version_id == resume_version_id
     ).first()
@@ -719,6 +717,7 @@ def get_ai_suggestions(
     if not match_result:
         raise HTTPException(404, "No match result found. Run /analyze first.")
 
+    # 2. Get JD title
     resume = db.query(models.ResumeVersion).filter(
         models.ResumeVersion.id == resume_version_id
     ).first()
@@ -727,6 +726,7 @@ def get_ai_suggestions(
         models.JobDescription.id == resume.jd_id
     ).first()
 
+    # 3. Generate suggestions
     suggestions = generate_suggestions(
         matched_skills=match_result.matched_skills or [],
         missing_skills=match_result.missing_skills or [],
@@ -734,6 +734,7 @@ def get_ai_suggestions(
         jd_title=jd.title if jd else "the target role"
     )
 
+    # 4. Save suggestions to DB
     match_result.ai_suggestions = suggestions
     db.commit()
 

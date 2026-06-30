@@ -55,7 +55,7 @@ function Upload() {
       setCurrentStep(1);
       const resumeFormData = new FormData();
       resumeFormData.append("file", resume);
-      const resumeResponse = await api.post("workflow/upload/resume", resumeFormData, {
+      const resumeResponse = await api.post("/workflow/upload/resume", resumeFormData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
@@ -73,14 +73,14 @@ function Upload() {
       let jdResponse;
       if (jdInputMode === "text") {
         jdResponse = await api.post(
-          `workflow/upload/job-description/text?session_id=${sessionId}`,
+          `/workflow/upload/job-description/text?session_id=${sessionId}`,
           { text: jdText }
         );
       } else {
         const jdFormData = new FormData();
         jdFormData.append("file", jd);
         jdResponse = await api.post(
-          `workflow/upload/job-description?session_id=${sessionId}`,
+          `/workflow/upload/job-description?session_id=${sessionId}`,
           jdFormData,
           { headers: { "Content-Type": "multipart/form-data" } }
         );
