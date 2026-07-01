@@ -16,7 +16,7 @@ model = None
 def get_model():
     global model
     if model is None and SentenceTransformer is not None:
-        model = SentenceTransformer("all-MiniLM-L6-v2", local_files_only=True)
+        SentenceTransformer("all-MiniLM-L6-v2")
     return model
 
 
