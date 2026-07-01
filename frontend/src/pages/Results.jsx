@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import "./Results.css";
 
@@ -101,11 +100,6 @@ function Results() {
     const authUser = localStorage.getItem("authUser");
     if (!authUser) navigate("/");
   }, [navigate]);
-  const navigate = useNavigate();
-  useEffect(() => {
-    const authUser = localStorage.getItem("authUser");
-    if (!authUser) navigate("/");
-  }, [navigate]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [resumeSaved, setResumeSaved] = useState(false);
@@ -136,7 +130,7 @@ function Results() {
         }
 
         // Fetch results from workflow endpoint
-        const res = await api.get(`/workflow/results?session_id=${sessionId}`);
+        const res = await api.get(`workflow/results?session_id=${sessionId}`);
         
         if (!mounted) return;
         
@@ -165,18 +159,6 @@ function Results() {
     };
 
     fetchResults();
-    // fetch user's job descriptions for save options
-    (async () => {
-      try {
-        const rawUser = localStorage.getItem("authUser");
-        if (!rawUser) return;
-        const user = JSON.parse(rawUser);
-        const jdRes = await api.get(`job-descriptions/${user.id}`);
-        setJobDescriptions(jdRes.data || []);
-      } catch (e) {
-        // ignore
-      }
-    })();
     // fetch user's job descriptions for save options
     (async () => {
       try {
@@ -322,49 +304,6 @@ function Results() {
         </section>
 
         <div className="results-actions">
-          <div style={{display:'flex', alignItems:'center', gap:12}}>
-            <button className="upload-submit-btn" type="button" onClick={openSaveDialog}>
-              {resumeSaved ? "Resume Saved" : "Save Resume"}
-            </button>
-            <button className="results-secondary-btn" type="button" onClick={() => { window.location.href = "/history"; }}>
-              Resume History
-            </button>
-          </div>
-
-          {showSavePanel && (
-            <div className="save-modal-backdrop" role="presentation" onClick={closeSaveDialog}>
-              <div
-                className="save-modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="save-modal-title"
-                aria-describedby="save-modal-description"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <div className="save-modal-header">
-                  <div>
-                    <p className="save-modal-kicker">Save resume</p>
-                    <h3 id="save-modal-title">Choose where to save this version</h3>
-                  </div>
-                  <button className="save-modal-close" type="button" onClick={closeSaveDialog} aria-label="Close save dialog">
-                    ×
-                  </button>
-                </div>
-
-                <p id="save-modal-description" className="save-modal-description">
-                  Save to an existing job description or create a new one before storing this resume version.
-                </p>
-
-                <div className="save-mode-switch">
-                  <label className={saveMode === 'existing' ? 'active' : ''}>
-                    <input type="radio" name="save-mode" checked={saveMode === 'existing'} onChange={() => setSaveMode('existing')} />
-                    Existing JD
-                  </label>
-                  <label className={saveMode === 'new' ? 'active' : ''}>
-                    <input type="radio" name="save-mode" checked={saveMode === 'new'} onChange={() => setSaveMode('new')} />
-                    Create new JD
-                  </label>
-                </div>
           <div style={{display:'flex', alignItems:'center', gap:12}}>
             <button className="upload-submit-btn" type="button" onClick={openSaveDialog}>
               {resumeSaved ? "Resume Saved" : "Save Resume"}
