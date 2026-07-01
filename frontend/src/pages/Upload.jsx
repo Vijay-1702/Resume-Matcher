@@ -114,7 +114,7 @@ function Upload() {
   return (
     <div className="upload-page">
       <main className="upload-main">
-        <div>
+        <div className="upload-header">
           <h1>Upload Resume & Job Description</h1>
           <p>
             Choose your resume and paste or upload your job description to begin 

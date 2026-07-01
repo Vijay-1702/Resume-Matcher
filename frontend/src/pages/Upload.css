@@ -30,6 +30,11 @@
   line-height: 1.7;
 }
 
+.upload-header {
+  display: grid;
+  gap: 10px;
+}
+
 .upload-block {
   display: grid;
   gap: 18px;
