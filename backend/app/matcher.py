@@ -2,7 +2,10 @@ from collections import Counter
 import math
 import re
 
-from backend.app.skill_extractor import analyze_skills
+try:
+    from .skill_extractor import analyze_skills
+except ImportError:  # pragma: no cover - fallback for older launch styles
+    from backend.app.skill_extractor import analyze_skills
 
 try:
     from sentence_transformers import SentenceTransformer, util

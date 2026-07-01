@@ -1,6 +1,12 @@
-import spacy
+try:
+    import spacy
+except Exception:  # pragma: no cover - optional dependency
+    spacy = None
 
-nlp = spacy.load("en_core_web_sm")
+try:
+    nlp = spacy.load("en_core_web_sm") if spacy is not None else None
+except Exception:  # pragma: no cover - optional model
+    nlp = None
 
 SKILL_LIST = [
     "python", "java", "javascript", "typescript", "c++", "c#", "go", "rust",

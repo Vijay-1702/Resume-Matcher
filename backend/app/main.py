@@ -1,8 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.app.database import engine
-from backend.app import models
-from backend.app.routers import router
+
+try:
+    from .database import engine
+    from . import models
+    from .routers import router
+except ImportError:  # pragma: no cover - fallback for older launch styles
+    from app.database import engine
+    from app import models
+    from app.routers import router
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -10,7 +16,7 @@ app = FastAPI(title="AI Resume Matcher API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
