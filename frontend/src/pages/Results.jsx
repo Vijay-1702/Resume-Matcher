@@ -136,7 +136,7 @@ function Results() {
         }
 
         // Fetch results from workflow endpoint
-        const res = await api.get(`/workflow/results?session_id=${sessionId}`);
+        const res = await api.get(`workflow/results?session_id=${sessionId}`);
         
         if (!mounted) return;
         
