@@ -11,11 +11,18 @@ from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from backend.app.database import get_db
-from backend.app import models
-from backend.app.parser import extract_text
-from backend.app.matcher import analyze_skills, calculate_match_score
-from backend.app.ai_suggestions import generate_suggestions
+try:
+    from .database import get_db
+    from . import models
+    from .parser import extract_text
+    from .matcher import analyze_skills, calculate_match_score
+    from .ai_suggestions import generate_suggestions
+except ImportError:  # pragma: no cover - fallback for older launch styles
+    from backend.app.database import get_db
+    from backend.app import models
+    from backend.app.parser import extract_text
+    from backend.app.matcher import analyze_skills, calculate_match_score
+    from backend.app.ai_suggestions import generate_suggestions
 router = APIRouter()
 
 UPLOAD_DIR = "uploads"

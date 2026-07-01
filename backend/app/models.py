@@ -1,7 +1,11 @@
 from sqlalchemy import Column, Integer, String, Text, Float, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from backend.app.database import Base
+
+try:
+    from .database import Base
+except ImportError:  # pragma: no cover - fallback for older launch styles
+    from backend.app.database import Base
 
 
 class User(Base):
