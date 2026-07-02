@@ -6,6 +6,7 @@ import re
 import secrets
 import shutil
 from uuid import uuid4
+from xmlrpc import client
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
@@ -802,23 +803,37 @@ def compare_two_resumes(payload: CompareInput, db: Session = Depends(get_db)):
     # attempt to use google generative ai for a richer comparison if available
     summary = None
     try:
-        import google.generativeai as genai
-        # Expect the API key to be set in env GOOGLE_API_KEY
-        genai.configure(api_key=os.environ.get("GOOGLE_API_KEY"))
+        if client is None:
+            raise Exception("Gemini client not available")
+
         prompt = (
-            "Compare the two resume texts. List what improved in the second resume compared to the first, "
-            "and list what is still lacking. Provide a short bullet summary.\n\nFirst Resume:\n" + a_text[:4000] + "\n\nSecond Resume:\n" + b_text[:4000]
+            "Compare the two resume texts. "
+            "List what improved in the second resume compared to the first, "
+            "and list what is still lacking. "
+            "Provide a short bullet summary.\n\n"
+            f"First Resume:\n{a_text[:4000]}\n\n"
+            f"Second Resume:\n{b_text[:4000]}"
         )
-        resp = genai.text.generate(model="gemini-pro", prompt=prompt, max_output_tokens=512)
-        summary = resp.text
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+        )
+
+        summary = response.text.strip()
+
     except Exception:
         # fallback: simple diff using skills from match results
         match_a = db.query(models.MatchResult).filter(models.MatchResult.resume_version_id == a.id).first()
+
         match_b = db.query(models.MatchResult).filter(models.MatchResult.resume_version_id == b.id).first()
+
         a_missing = set(match_a.missing_skills or []) if match_a else set()
         b_missing = set(match_b.missing_skills or []) if match_b else set()
+
         newly_added = sorted(list(a_missing - b_missing))
         still_missing = sorted(list(b_missing))
+
         summary = {
             "previous_score": match_a.score if match_a else None,
             "latest_score": match_b.score if match_b else None,
