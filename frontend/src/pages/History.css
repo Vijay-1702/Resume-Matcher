@@ -111,6 +111,98 @@
   color: var(--text-h);
 }
 
+@media (prefers-color-scheme: dark) {
+  .history-page {
+    background:
+      radial-gradient(circle at top right, rgba(106, 212, 255, 0.14), transparent 32%),
+      radial-gradient(circle at bottom left, rgba(216, 164, 255, 0.12), transparent 28%);
+  }
+
+  .history-main {
+    background: rgba(16, 18, 26, 0.96);
+    border-color: rgba(47, 52, 66, 0.92);
+    box-shadow: 0 28px 70px rgba(0, 0, 0, 0.42);
+  }
+
+  .history-main h1,
+  .history-card h3,
+  .history-card-meta h4,
+  .comparison-label,
+  .comparison-summary h2,
+  .comparison-card h3,
+  .score-pill,
+  .history-date,
+  .empty-state,
+  .jd-select label,
+  .jd-select select,
+  .history-card-actions label,
+  .comparison-summary p,
+  .history-main .sub {
+    color: var(--text-h);
+  }
+
+  .history-card p,
+  .comparison-card li,
+  .comparison-card ul,
+  .comparison-summary p,
+  .empty-state,
+  .history-card-actions label {
+    color: var(--text);
+  }
+
+  .comparison-summary,
+  .comparison-card,
+  .history-card,
+  .empty-state {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(47, 52, 66, 0.95);
+  }
+
+  .comparison-card.latest {
+    background: linear-gradient(135deg, rgba(118, 95, 255, 0.18), rgba(106, 212, 255, 0.12));
+  }
+
+  .score-pill {
+    background: rgba(216, 164, 255, 0.16);
+  }
+
+  .history-date {
+    color: var(--text);
+  }
+
+  .jd-select label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 700;
+  }
+
+  .jd-select select {
+    width: 100%;
+    min-height: 48px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.04);
+    padding: 12px 14px;
+    font: inherit;
+  }
+
+  .history-card-actions input {
+    accent-color: var(--accent);
+  }
+
+  .history-card-actions button,
+  .history-card-actions label,
+  .history-card-actions input,
+  .history-card-actions select {
+    color: var(--text-h);
+  }
+
+  .history-card-actions button {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(47, 52, 66, 0.95);
+  }
+}
+
 @media (max-width: 760px) {
   .history-page { padding: 32px 16px 48px; }
   .history-main { padding: 28px 24px; }
