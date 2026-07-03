@@ -79,7 +79,7 @@ function Home() {
   return (
     <main className="auth-page">
       <section className="auth-panel" aria-labelledby="auth-title">
-        <div className="auth-intro">
+        <div className={`auth-intro ${isSignup ? "signup" : ""}`}>
           <p className="auth-kicker">AI Resume Matcher</p>
           <h1 id="auth-title">{isSignup ? "Create your account" : "Welcome back"}</h1>
           <p>
